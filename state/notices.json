@@ -6,7 +6,13 @@
   "lastAttemptedRunAt": "2026-10-20T16:33:07.810Z",
   "lastRunStatus": "IDLE",
   "lastRunId": "dry_run_1792513987810",
-  "activeLock": null,
+  "activeLock": {
+    "lockId": "lock_bootstrap_1792514100348",
+    "ownerRunId": "bootstrap_1792514100348",
+    "operation": "bootstrap",
+    "acquiredAt": "2026-10-20T16:35:00.348Z",
+    "expiresAt": "2026-10-20T16:37:00.348Z"
+  },
   "resumableScanQueue": null,
   "boardStatuses": {
     "RRB_CENTRAL": {
