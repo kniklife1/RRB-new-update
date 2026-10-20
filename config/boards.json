@@ -1,0 +1,453 @@
+{
+  "schemaVersion": 2,
+  "parserVersion": "2.2.0-unified-portal-only",
+  "primaryUnifiedPortal": "https://rrb.indianrailways.gov.in/",
+  "totalBoards": 22,
+  "approvedOfficialDomains": [
+    "rrb.indianrailways.gov.in",
+    "www.rrb.indianrailways.gov.in"
+  ],
+  "boards": [
+    {
+      "boardId": "RRB_CENTRAL",
+      "boardName": "RRCB / Unified Central Portal (All-India CEN)",
+      "zoneCode": "CEN-HQ",
+      "headquarters": "New Delhi",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "rrcb",
+        "all rrb",
+        "all-india",
+        "centralized",
+        "cen-hq"
+      ],
+      "sourceType": "UNIFIED_PORTAL_CENTRAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Primary unified RRB portal consolidating Centralized Employment Notifications (CEN), corrigenda, schedules, and multi-board announcements."
+    },
+    {
+      "boardId": "RRB_AHMEDABAD",
+      "boardName": "RRB Ahmedabad",
+      "zoneCode": "WR-ADI",
+      "headquarters": "Ahmedabad, Gujarat",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "ahmedabad",
+        "wr-adi",
+        "-adi",
+        "/adi_"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Western Railway zone recruitment notices, DV schedules, and replacement panels via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_AJMER",
+      "boardName": "RRB Ajmer",
+      "zoneCode": "NWR-AII",
+      "headquarters": "Ajmer, Rajasthan",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "ajmer",
+        "nwr-aii",
+        "-aii",
+        "/aii_",
+        "north western railway"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "North Western Railway & West Central Railway regional recruitment notices and final results via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_ALLAHABAD",
+      "boardName": "RRB Prayagraj (Allahabad)",
+      "zoneCode": "NCR-ALD",
+      "headquarters": "Prayagraj, Uttar Pradesh",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "prayagraj",
+        "allahabad",
+        "ncr-ald",
+        "-ald",
+        "/ald_",
+        "pryj",
+        "north central railway"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "North Central Railway & Northern Railway regional notices, cut-offs, and call letters via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_BANGALORE",
+      "boardName": "RRB Bengaluru (Bangalore)",
+      "zoneCode": "SWR-SBC",
+      "headquarters": "Bengaluru, Karnataka",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "bengaluru",
+        "bangalore",
+        "swr-sbc",
+        "-sbc",
+        "/sbc_",
+        "south western railway"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "South Western Railway & Rail Wheel Factory notices, provisional panels, and e-call letters via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_BHOPAL",
+      "boardName": "RRB Bhopal",
+      "zoneCode": "WCR-BPL",
+      "headquarters": "Bhopal, Madhya Pradesh",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "bhopal",
+        "wcr-bpl",
+        "-bpl",
+        "/bpl_",
+        "west central railway"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "West Central Railway & Western Railway regional candidate updates and CEN corrigenda via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_BHUBANESWAR",
+      "boardName": "RRB Bhubaneswar",
+      "zoneCode": "ECoR-BBS",
+      "headquarters": "Bhubaneswar, Odisha",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "bhubaneswar",
+        "ecor-bbs",
+        "-bbs",
+        "/bbs_",
+        "east coast railway"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "East Coast Railway recruitment results, medical appeal notices, and DV lists via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_BILASPUR",
+      "boardName": "RRB Bilaspur",
+      "zoneCode": "SECR-BSP",
+      "headquarters": "Bilaspur, Chhattisgarh",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "bilaspur",
+        "secr-bsp",
+        "-bsp",
+        "/bsp_",
+        "secr zone",
+        "south east central railway"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "South East Central Railway & Central Railway regional recruitment notifications via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_CHANDIGARH",
+      "boardName": "RRB Chandigarh",
+      "zoneCode": "NR-CDG",
+      "headquarters": "Chandigarh",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "chandigarh",
+        "nr-cdg",
+        "-cdg",
+        "/cdg_"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Northern Railway headquarters zone notices, CBT schedules, and answer keys via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_CHENNAI",
+      "boardName": "RRB Chennai",
+      "zoneCode": "SR-MAS",
+      "headquarters": "Chennai, Tamil Nadu",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "chennai",
+        "sr-mas",
+        "-mas",
+        "/mas_",
+        "southern railway & icf"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Southern Railway & ICF Chennai official candidate notifications and scorecards via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_GORAKHPUR",
+      "boardName": "RRB Gorakhpur",
+      "zoneCode": "NER-GKP",
+      "headquarters": "Gorakhpur, Uttar Pradesh",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "gorakhpur",
+        "ner-gkp",
+        "-gkp",
+        "/gkp_",
+        "north eastern railway"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "North Eastern Railway & RDSO recruitment notices and document verification updates via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_GUWAHATI",
+      "boardName": "RRB Guwahati",
+      "zoneCode": "NFR-GHY",
+      "headquarters": "Guwahati, Assam",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "guwahati",
+        "dibrugarh",
+        "nfr-ghy",
+        "-ghy",
+        "/ghy_"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Northeast Frontier Railway candidate alerts, exam city slips, and final panels via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_JAMMU",
+      "boardName": "RRB Jammu-Srinagar",
+      "zoneCode": "NR-JAT",
+      "headquarters": "Jammu, J&K",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "jammu",
+        "srinagar",
+        "nr-jat",
+        "-jat",
+        "/jat_"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Northern Railway (Firozpur Division), DMW Patiala & RCF Kapurthala recruitment notices via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_KOLKATA",
+      "boardName": "RRB Kolkata",
+      "zoneCode": "ER-KOAA",
+      "headquarters": "Kolkata, West Bengal",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "kolkata",
+        "er-koaa",
+        "-koaa",
+        "/koaa_",
+        "metro railway",
+        "clw"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Eastern Railway, South Eastern Railway, Metro Railway Kolkata & CLW Chittaranjan notices via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_MALDA",
+      "boardName": "RRB Malda",
+      "zoneCode": "ER-MLDT",
+      "headquarters": "Malda, West Bengal",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "malda",
+        "er-mldt",
+        "-mldt",
+        "/mldt_"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Eastern Railway (Malda Division) & SER regional notices and empanelment lists via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_MUMBAI",
+      "boardName": "RRB Mumbai",
+      "zoneCode": "CR-CSTM",
+      "headquarters": "Mumbai, Maharashtra",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "mumbai",
+        "cr-cstm",
+        "-mmct",
+        "/mmct_",
+        "central & western railway"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Central Railway, Western Railway & SCR regional notices, supplementary panels, and corrigenda via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_MUZAFFARPUR",
+      "boardName": "RRB Muzaffarpur",
+      "zoneCode": "ECR-MFP",
+      "headquarters": "Muzaffarpur, Bihar",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "muzaffarpur",
+        "samastipur",
+        "ecr-mfp",
+        "-mfp",
+        "/mfp_"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "East Central Railway (Samastipur & Sonpur Divisions) recruitment notices via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_PATNA",
+      "boardName": "RRB Patna",
+      "zoneCode": "ECR-PNBE",
+      "headquarters": "Patna, Bihar",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "patna",
+        "ecr-pnbe",
+        "-pnbe",
+        "/pnbe_"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "East Central Railway headquarters recruitment notifications, results, and DV schedules via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_RANCHI",
+      "boardName": "RRB Ranchi",
+      "zoneCode": "SER-RNC",
+      "headquarters": "Ranchi, Jharkhand",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "ranchi",
+        "ser-rnc",
+        "-rnc",
+        "/rnc_"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "South Eastern Railway & East Central Railway (Dhanbad Division) official notices via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_SECUNDERABAD",
+      "boardName": "RRB Secunderabad",
+      "zoneCode": "SCR-SC",
+      "headquarters": "Secunderabad, Telangana",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "secunderabad",
+        "scr-sc",
+        "-sc",
+        "/sc_",
+        "south central railway"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "South Central Railway & East Coast Railway official candidate announcements and results via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_SILIGURI",
+      "boardName": "RRB Siliguri",
+      "zoneCode": "NFR-SGUJ",
+      "headquarters": "Siliguri, West Bengal",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "siliguri",
+        "katihar",
+        "alipurduar",
+        "nfr-sguj",
+        "-sguj",
+        "/sguj_"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Northeast Frontier Railway (Katihar & Alipurduar Divisions) candidate notices via https://rrb.indianrailways.gov.in/."
+    },
+    {
+      "boardId": "RRB_THIRUVANANTHAPURAM",
+      "boardName": "RRB Thiruvananthapuram",
+      "zoneCode": "SR-TVC",
+      "headquarters": "Thiruvananthapuram, Kerala",
+      "sourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "regionalKeywords": [
+        "thiruvananthapuram",
+        "trivandrum",
+        "sr-tvc",
+        "-tvc",
+        "/tvc_"
+      ],
+      "sourceType": "UNIFIED_PORTAL_REGIONAL",
+      "enabled": true,
+      "lastSuccessfulFetch": null,
+      "parserVersion": "2.2.0-unified-portal-only",
+      "notes": "Southern Railway (Trivandrum & Palakkad Divisions) recruitment notices and panels via https://rrb.indianrailways.gov.in/."
+    }
+  ]
+}

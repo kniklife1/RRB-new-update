@@ -1,0 +1,48 @@
+{
+  "runId": "test_all_1792486800000",
+  "executedAt": "2026-10-20T09:00:00.000Z",
+  "executedAtIST": "20 Oct 2026, 02:30:00 pm IST",
+  "dataSourceMode": "DETERMINISTIC_FIXTURE",
+  "durationMs": 42,
+  "totalBoardsConfigured": 22,
+  "totalTested": 22,
+  "counts": {
+    "PASS": 22,
+    "PARTIAL": 0,
+    "FAIL": 0,
+    "SKIPPED": 0,
+    "BLOCKED": 0
+  },
+  "telegramSummarySent": false,
+  "telegramMessageId": null,
+  "reports": [
+    {
+      "boardId": "RRB_CENTRAL",
+      "boardName": "RRCB / Unified Central Portal (All-India CEN)",
+      "configuredSourceUrl": "https://rrb.indianrailways.gov.in/",
+      "noticesUrl": "https://rrb.indianrailways.gov.in/",
+      "verdict": "PASS",
+      "httpStatus": 200,
+      "fetchResult": "SUCCESS",
+      "redirectDestination": null,
+      "responseContentType": "text/html; charset=utf-8",
+      "responseSizeBytes": 2184,
+      "fetchDurationMs": 6,
+      "parsingResult": "VALID",
+      "rawRowsDetected": 3,
+      "validNormalizedNotices": 3,
+      "duplicatesFound": 0,
+      "newestValidPublicationDate": "2026-10-19",
+      "latestParsedNoticeTitle": "CEN 04/2026 (NTPC Graduate & Undergraduate): Notice on Tentative 1st Stage CBT Schedule & City Intimation Link",
+      "officialDetailUrl": "https://rrb.indianrailways.gov.in/cen-2026/CEN_04_2026_CBT1_Schedule_Notice.pdf",
+      "attachmentUrl": "https://rrb.indianrailways.gov.in/cen-2026/CEN_04_2026_CBT1_Schedule_Notice.pdf",
+      "dateParsingConfidence": "HIGH",
+      "paginationChecked": true,
+      "unexpectedPageStructure": false,
+      "errorCategory": null,
+      "diagnosticMessage": "Successfully parsed 3 official notices (0 inline duplicates suppressed).",
+      "dataSourceMode": "DETERMINISTIC_FIXTURE",
+      "testedAt": "2026-10-20T09:00:00.000Z"
+    }
+  ]
+}

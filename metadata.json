@@ -1,0 +1,6 @@
+{
+  "name": "RRB Official Notice Monitor",
+  "description": "Production-grade Railway Recruitment Board (RRB) unified portal & 21 regional boards notice monitoring, GitHub SHA state persistence, and Telegram alert automation system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

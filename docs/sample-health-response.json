@@ -1,0 +1,52 @@
+{
+  "service": "rrb-official-notice-monitor",
+  "version": "2.1.0",
+  "status": "HEALTHY",
+  "timestampUtc": "2026-10-20T09:00:00.000Z",
+  "timestampIst": "20 Oct 2026, 02:30:00 pm IST",
+  "baseline": {
+    "initialized": true,
+    "baselineCompletedAt": "2026-10-19T10:00:00.000Z",
+    "baselinedBoards": 22,
+    "totalEnabledBoards": 22
+  },
+  "execution": {
+    "lastAttemptedRunAt": "2026-10-20T09:00:00.000Z",
+    "lastSuccessfulRunAt": "2026-10-20T09:00:00.000Z",
+    "lastRunStatus": "SUCCESS",
+    "lastRunId": "production_1792486800000",
+    "activeLock": null,
+    "resumableScanQueue": null
+  },
+  "boardHealthSummary": {
+    "totalConfigured": 22,
+    "enabled": 22,
+    "healthy": 22,
+    "failing": 0
+  },
+  "queues": {
+    "knownNoticesTotal": 33,
+    "deliveredTotal": 33,
+    "pendingDeliveries": 0,
+    "failedDeliveries": 0,
+    "uncertainDeliveries": 0
+  },
+  "integrations": {
+    "storageBackend": "github",
+    "githubConfigured": true,
+    "telegramConfigured": true
+  },
+  "metrics": {
+    "totalRuns": 14,
+    "totalValidNoticesFound": 462,
+    "totalNewNoticesDetected": 2,
+    "totalTelegramDelivered": 2,
+    "totalFailedDeliveries": 0,
+    "totalUncertainDeliveries": 0,
+    "githubStateReadFailures": 0,
+    "githubStateWriteFailures": 0,
+    "githubShaConflictsResolved": 0,
+    "lockAcquisitionFailures": 0,
+    "lastOperationalAlertAt": null
+  }
+}

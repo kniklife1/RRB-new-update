@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 2,
+  "initialized": true,
+  "baselineCompletedAt": "2026-10-19T10:00:00.000Z",
+  "lastSuccessfulRunAt": "2026-10-20T09:00:00.000Z",
+  "lastAttemptedRunAt": "2026-10-20T09:00:00.000Z",
+  "lastRunStatus": "SUCCESS",
+  "lastRunId": "production_1792486800000",
+  "activeLock": null,
+  "resumableScanQueue": null,
+  "boardStatuses": {
+    "RRB_CENTRAL": {
+      "boardId": "RRB_CENTRAL",
+      "boardName": "RRCB / Unified Central Portal (All-India CEN)",
+      "baselined": true,
+      "baselineCompletedAt": "2026-10-19T10:00:00.000Z",
+      "lastAttemptedFetchAt": "2026-10-20T09:00:00.000Z",
+      "lastSuccessfulFetchAt": "2026-10-20T09:00:00.000Z",
+      "lastHttpStatus": 200,
+      "consecutiveFetchFailures": 0,
+      "consecutiveParserFailures": 0,
+      "lastDiscoveredCount": 3,
+      "lastValidNoticeCount": 3,
+      "lastNewestPublicationDate": "2026-10-19",
+      "lastErrorCategory": null,
+      "lastErrorMessage": null,
+      "parserVersion": "2.1.0-unified-rrb"
+    }
+  },
+  "knownNotices": {
+    "RRB_CENTRAL_4f9b2c1e8a7d603f1290ab45": {
+      "noticeId": "RRB_CENTRAL_4f9b2c1e8a7d603f1290ab45",
+      "fingerprint": "9c82a10d3f5e712490ab43e8112233445566778899aabbccddeeff0011223344",
+      "boardId": "RRB_CENTRAL",
+      "boardName": "RRCB / Unified Central Portal (All-India CEN)",
+      "title": "CEN 04/2026 (NTPC Graduate & Undergraduate): Notice on Tentative 1st Stage CBT Schedule & City Intimation Link",
+      "officialNoticeUrl": "https://rrb.indianrailways.gov.in/cen-2026/CEN_04_2026_CBT1_Schedule_Notice.pdf",
+      "canonicalUrl": "https://rrb.indianrailways.gov.in/cen-2026/CEN_04_2026_CBT1_Schedule_Notice.pdf",
+      "attachmentUrls": [
+        "https://rrb.indianrailways.gov.in/cen-2026/CEN_04_2026_CBT1_Schedule_Notice.pdf"
+      ],
+      "publicationDate": "2026-10-19",
+      "publicationDateConfidence": "HIGH",
+      "category": "Exam Schedule & City Intimation",
+      "contentHash": "7a11b22c33d44e55f66a77b88c99d00e11f22a33b44c55d66e77f88a99b00c11",
+      "firstSeenAt": "2026-10-19T10:00:00.000Z",
+      "lastSeenAt": "2026-10-20T09:00:00.000Z",
+      "lastObservedAt": "2026-10-20T09:00:00.000Z",
+      "baselineStatus": "BASELINED_INITIAL",
+      "deliveryStatus": "suppressed_baseline",
+      "deliveredAt": null,
+      "sourceLastModified": null,
+      "parserVersion": "2.1.0-unified-rrb",
+      "verificationStatus": "VERIFIED"
+    }
+  },
+  "deliveredNoticeIds": [
+    "RRB_CENTRAL_4f9b2c1e8a7d603f1290ab45"
+  ],
+  "deliveredFingerprints": [
+    "9c82a10d3f5e712490ab43e8112233445566778899aabbccddeeff0011223344"
+  ],
+  "pendingDeliveries": {},
+  "failedDeliveries": {},
+  "uncertainDeliveries": {},
+  "recentRunHistory": [],
+  "recentErrors": [],
+  "lastSuccessfulNoticeDatesByBoard": {
+    "RRB_CENTRAL": "2026-10-19"
+  },
+  "metrics": {
+    "totalRuns": 1,
+    "totalValidNoticesFound": 33,
+    "totalNewNoticesDetected": 0,
+    "totalTelegramDelivered": 0,
+    "totalFailedDeliveries": 0,
+    "totalUncertainDeliveries": 0,
+    "githubStateReadFailures": 0,
+    "githubStateWriteFailures": 0,
+    "githubShaConflictsResolved": 0,
+    "lockAcquisitionFailures": 0,
+    "lastOperationalAlertAt": null
+  }
+}

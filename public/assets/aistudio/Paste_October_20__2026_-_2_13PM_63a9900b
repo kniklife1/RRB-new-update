@@ -1,0 +1,614 @@
+# PROJECT SPECIFICATION: RRB NOTICE MONITOR — FRESH PRODUCTION BUILD
+
+## 1. ROLE AND OBJECTIVE
+
+Act as a senior full-stack TypeScript engineer, web-scraping specialist, test engineer, database architect, and Telegram automation developer.
+
+Build a completely new, production-oriented Railway Recruitment Board (RRB) official-notice monitoring system from scratch.
+
+Primary official website:
+https://rrb.indianrailways.gov.in/
+
+The system must monitor all discoverable regional Railway Recruitment Boards and all relevant notice categories on the unified official portal.
+
+The production system must:
+- Run automatically every 10 minutes through cron-job.org.
+- Fetch and parse official RRB notices.
+- Identify genuinely new notices.
+- Send only eligible new notices to a Telegram bot.
+- Store notice fingerprints, delivery status, history, and baseline information persistently in GitHub.
+- Never resend a previously delivered notice during normal operation.
+- Never send existing historical notices as new notices during initial setup.
+- Provide an all-zones test that verifies every configured board and reports the actual latest notice discovered for each board.
+- Provide safe recovery from network failures, parser failures, state-write conflicts, Telegram errors, and interrupted executions.
+
+Do not reuse code, configuration, deployment settings, state files, credentials, or assumptions from any older scraper project. Create an independent implementation with its own repository, configuration, state namespace, tests, and documentation.
+
+Do not claim that the application is production-ready until its tests have actually run and the implementation satisfies the acceptance criteria below.
+
+## 2. OFFICIAL WEBSITE DISCOVERY
+
+Start by examining the live official website and the Railway Recruitment Control Board's official directory.
+
+Determine the actual current architecture of the unified RRB portal.
+
+Discover:
+- Every regional RRB represented on the official portal.
+- Each board's official identifier and display name.
+- Board-specific notice listings, where available.
+- Centralized employment notifications.
+- Recruitment notices, corrigenda, results, answer keys, exam schedules, admit-card or call-letter updates, and other official candidate notices.
+- Notice publication dates.
+- Notice detail pages.
+- PDF attachments and official document links.
+- Pagination, filters, APIs, embedded JSON, and JavaScript-loaded notice data, if present.
+
+Do not assume that all boards use identical HTML.
+Do not assume that all old regional domains remain active.
+Do not assume that the number of boards is fixed without verifying it.
+Do not invent regional URLs or infer a board's notice page from a naming pattern.
+
+Use the unified portal as the primary source. Use old regional websites only if there is evidence that they remain official and are necessary to cover notices missing from the unified portal.
+
+Prefer official structured data or documented endpoints when available. Otherwise, use carefully validated HTML parsing.
+
+Respect robots policies, rate limits, reasonable request concurrency, and website availability. Never bypass access controls or anti-bot protections.
+
+Create a verified board configuration containing:
+- boardId
+- boardName
+- sourceUrl
+- noticesUrl
+- sourceType
+- enabled
+- lastSuccessfulFetch
+- parserVersion
+- notes
+
+Every enabled board must have a real, verified source. Report undiscoverable or inaccessible boards as failures instead of silently excluding them.
+
+## 3. TECHNOLOGY AND DEPLOYMENT
+
+Use:
+- TypeScript and Node.js.
+- A maintained HTTP client.
+- A robust HTML parser such as Cheerio when HTML parsing is necessary.
+- SHA-256 for deterministic notice fingerprints.
+- The official GitHub API for persistent state and repository history.
+- The Telegram Bot API for notifications.
+- Google AI Studio Build mode for development.
+- Google Cloud Run or a compatible persistent serverless HTTP host for production execution.
+- cron-job.org as the external scheduler.
+
+The scraper must execute on the server. Never perform scraping, state mutation, or Telegram token usage in frontend browser code.
+
+The application must expose authenticated endpoints:
+- GET /health
+- POST /api/cron/run
+- POST /api/test/all-zones
+- POST /api/test/zone
+- POST /api/test/telegram
+- POST /api/admin/bootstrap
+- POST /api/admin/dry-run
+
+Protect every action endpoint using a strong server-side bearer secret or equivalent authentication. Validate authorization before any state changes or Telegram delivery.
+
+The health endpoint may expose non-sensitive service status but must never reveal credentials, private state contents, or internal secrets.
+
+Configure timeouts, request limits, controlled concurrency, retries with exponential backoff and jitter, and bounded memory use.
+
+Because cron-job.org has an approximately 30-second execution timeout, design the scheduled request to complete safely within the available time. Measure the actual worst-case runtime. If a full scan cannot complete safely, implement a persistent, resumable scan queue and schedule bounded batches with explicit progress tracking. Do not report a partial scan as a successful full scan.
+
+Avoid overlapping executions using a durable lock or another reliable concurrency-control mechanism. A process-local mutex alone is insufficient for multiple server instances.
+
+## 4. REQUIRED SECRETS
+
+Use server-side environment variables or the host's secrets manager:
+
+TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID
+GITHUB_TOKEN
+GITHUB_OWNER
+GITHUB_REPO
+GITHUB_BRANCH
+GITHUB_STATE_PATH=state/notices.json
+CRON_AUTH_TOKEN
+ADMIN_AUTH_TOKEN
+
+Add optional variables only where needed, with sensible documented defaults.
+
+Never print secret values in logs, frontend responses, exceptions, test output, README files, or Git history.
+
+Never use a Gemini API key as a substitute for the Telegram token, GitHub token, or cron authentication token.
+
+Provide a .env.example containing placeholders only. Ensure .env and all secret-bearing files are ignored by Git.
+
+For GitHub access, use a fine-grained token with the minimum required repository permissions. Implement explicit handling for authentication failures, rate limits, network errors, and file-SHA conflicts.
+
+## 5. NOTICE DATA MODEL
+
+Normalize every discovered notice into a common data structure:
+
+- noticeId
+- fingerprint
+- boardId
+- boardName
+- title
+- officialNoticeUrl
+- canonicalUrl
+- attachmentUrls
+- publicationDate
+- publicationDateConfidence
+- category
+- contentHash
+- firstSeenAt
+- lastSeenAt
+- lastObservedAt
+- baselineStatus
+- deliveryStatus
+- deliveredAt
+- sourceLastModified, if available
+- parserVersion
+- verificationStatus
+
+Use ISO 8601 timestamps in UTC for internal records. Convert to Asia/Kolkata only when displaying human-readable timestamps.
+
+Publication dates must come from the official source when available. Do not substitute scrape time for publication time.
+
+Normalize whitespace, HTML entities, Unicode, URLs, and title text consistently.
+
+Remove irrelevant URL tracking parameters while preserving parameters that identify the actual document.
+
+Prefer a stable official notice ID or canonical detail-page URL for identity.
+
+If no stable ID exists, generate a deterministic SHA-256 fingerprint from normalized board identity, title, official publication date, and canonical attachment URL or another validated identity field.
+
+Do not use the current time, list position, random values, or a changing query parameter as a notice identity.
+
+Use both stable notice identity and content hashes. A title change, attachment correction, or updated document must be recorded as a possible revision, not blindly treated as a wholly unrelated notice.
+
+Do not silently overwrite previously recorded notice metadata.
+
+## 6. PERSISTENT GITHUB STATE
+
+Implement a dedicated state-management module that reads and writes state through the GitHub Contents API.
+
+Use the configured repository, branch, and state path. Every update must use the current file SHA and handle HTTP 409 conflicts, retries, and concurrent writes safely.
+
+Maintain a versioned state schema with a migration strategy.
+
+Persist at least:
+
+- schemaVersion
+- initialized
+- baselineCompletedAt
+- lastSuccessfulRunAt
+- lastAttemptedRunAt
+- lastRunStatus
+- lastRunId
+- boardStatuses
+- knownNotices
+- deliveredNoticeIds
+- pendingDeliveries
+- failedDeliveries
+- uncertainDeliveries
+- recentRunHistory
+- recentErrors
+- lastSuccessfulNoticeDatesByBoard
+
+Record per-board fetch and parsing status separately.
+
+Keep a complete notice history subject to a configurable retention policy. Never delete deduplication identities merely because old notification logs have expired.
+
+Avoid storing the entire HTML of every fetched page in the main JSON state. Store compact metadata, fingerprints, and links. Keep large diagnostic artifacts outside the main state file.
+
+Implement state validation, schema migrations, safe writes, corruption detection, and recovery documentation.
+
+Do not use in-memory state as the authoritative source.
+
+Do not assume that a successful GitHub API read means the next write will succeed.
+
+If the state cannot be read or safely updated, fail closed: do not send notices whose deduplication status cannot be verified.
+
+For a deployment that requires stronger concurrency guarantees than GitHub file updates can provide, use a transactional database for locking and the delivery queue while continuing to persist a GitHub audit/state snapshot. Document the selected architecture and why it is safe.
+
+## 7. INITIAL BASELINE — ABSOLUTELY NO HISTORICAL ALERTS
+
+The first production initialization must operate in baseline-only mode.
+
+Procedure:
+
+1. Discover all configured boards.
+2. Fetch their notice listings and required pages.
+3. Parse and validate the discovered notices.
+4. Record existing notice fingerprints and publication dates.
+5. Persist the initial baseline.
+6. Confirm that all required boards have been accounted for.
+7. Mark the baseline as complete only after the required baseline state has been successfully persisted.
+
+Do not send individual historical notices to Telegram during baseline creation.
+
+Do not mark the baseline complete after a partial scan or a failed state write.
+
+If some boards fail, persist their error statuses and use an explicit resumable initialization process. Do not silently establish an incomplete baseline.
+
+Before enabling production delivery, require a successful baseline and an explicit operational readiness check.
+
+After baseline initialization, only newly observed, valid notices that meet the new-notice eligibility rules may enter the production delivery queue.
+
+If a board was unavailable during baseline creation, treat its first successful scan carefully. Do not automatically send all historical items discovered on recovery as new. Baseline that board first unless trustworthy publication and prior-state evidence establishes genuine novelty.
+
+Provide a documented administrative reset procedure. A reset must require explicit authorization, display its consequences, and never silently clear historical fingerprints.
+
+## 8. NEW-NOTICE ELIGIBILITY
+
+A notice is eligible for a new-alert message only when all of these conditions are satisfied:
+
+- The baseline is complete.
+- The notice came from a verified official source.
+- The notice has a valid, deterministic fingerprint.
+- The notice is not already in the persistent notice history.
+- The notice is not already pending, sending, delivered, or uncertain in the delivery queue.
+- The notice is not classified as a historical item discovered during recovery.
+- Its publication metadata and source evidence have passed the configured validation rules.
+- The state store is healthy and safe to update.
+- No conflicting scan or delivery operation owns the relevant lock.
+
+Distinguish a genuinely new notice from an old notice that has just appeared on another board, moved to the top of a list, been exposed through pagination, or been found after a previous fetch failure.
+
+When publication dates are available, compare them with stored history and first-seen evidence. When publication dates are missing or unreliable, use a conservative policy and do not claim that the publication is new merely because it is newly discovered.
+
+If a new official notice has an older publication date, do not automatically discard it forever. Record it for review or quarantine unless trustworthy evidence shows that it is genuinely new. Make the policy configurable and explain its effect in the dashboard and documentation.
+
+A new corrigendum or revised official document may deserve a new alert if it has a distinct official identity or a validated new version. Do not resend an unchanged document.
+
+## 9. TELEGRAM MESSAGE FORMAT
+
+Use the Telegram Bot API from server-side code.
+
+Example format:
+
+🚆 NEW RRB OFFICIAL NOTICE
+
+Board: {boardName}
+Category: {category}
+Title: {title}
+Publication Date: {publicationDate}
+
+Official Notice:
+{officialNoticeUrl}
+
+PDF / Attachment:
+{attachmentUrlIfAvailable}
+
+Detected At: {detectedAtIST}
+
+The format is an example; populate it exclusively from validated notice data.
+
+Requirements:
+- Send only eligible new notices in production mode.
+- Include the board name and official source link.
+- Escape HTML or Markdown correctly according to the selected Telegram parse mode.
+- Respect Telegram message-length limits.
+- Split long text safely if required.
+- Handle HTTP errors, API-level errors, rate limits, and Retry-After instructions.
+- Never expose bot tokens in URLs printed to logs.
+- Do not send the same notice separately for duplicate listings across boards.
+- Preserve the original board attribution and all relevant official links.
+- Do not generate artificial notices to simulate successful scraping.
+
+Implement a global delivery queue with persistent statuses:
+discovered, pending, sending, sent, failed, and uncertain.
+
+Use an atomic claim or durable lock before delivery.
+
+Persist the delivery intent before sending and persist the Telegram message ID and successful delivery result when available.
+
+Acknowledge that Telegram does not provide a general idempotency key for sendMessage. If the request times out after Telegram may have accepted the message, use an uncertain-delivery state and reconciliation policy rather than blindly retrying forever.
+
+Prioritize avoiding duplicate alerts. Provide controlled retries, manual reconciliation, and an auditable history of every delivery attempt.
+
+## 10. EVERY-10-MINUTE CRON SCHEDULING
+
+Provide complete cron-job.org setup instructions.
+
+Use a single authenticated production endpoint where feasible:
+
+POST https://YOUR-DEPLOYED-HOST/api/cron/run
+
+Configure the schedule for every 10 minutes in the Asia/Kolkata time zone.
+
+In cron-job.org, set:
+- URL: the deployed cron endpoint.
+- Method: POST.
+- Header: Authorization: Bearer YOUR_CRON_AUTH_TOKEN.
+- Content-Type: application/json.
+- Body: a minimal production run request.
+- Timeout: within the service's supported limits.
+- Success condition: an actual successful JSON response, not merely HTTP 200 from an endpoint that swallowed an error.
+
+The production endpoint must reject unauthorized requests.
+
+A failed fetch, incomplete scan, state-write failure, or failed required operation must produce an appropriate non-success status and an auditable error record.
+
+Do not send a test alert on every cron execution.
+
+Provide exact setup instructions, a recommended schedule, a manual test procedure, and troubleshooting steps.
+
+## 11. ALL-ZONES TEST SYSTEM
+
+Implement a genuine test suite and authenticated all-zones testing endpoint.
+
+For every configured board, report:
+
+- Board ID and name.
+- Configured official source URL.
+- HTTP status and fetch result.
+- Redirect destination, when applicable.
+- Response content type.
+- Response size.
+- Fetch duration.
+- Parsing result.
+- Number of notice rows or cards detected.
+- Number of valid normalized notices.
+- Number of duplicates found.
+- Newest valid publication date, when known.
+- Actual latest parsed notice title.
+- Official detail URL.
+- Attachment URL, when present.
+- Date parsing confidence.
+- Whether pagination was checked.
+- Whether the board appears to be using an unexpected page structure.
+- Error category and a concise diagnostic message.
+- Whether the result is based on live data or a test fixture.
+
+A homepage returning HTTP 200 is not proof that its notice parser works.
+
+For each board, verify that the parsed result contains actual notice records with valid titles and official URLs. Use fixtures to test known HTML structures and regression cases.
+
+Create a test report that distinguishes:
+- PASS
+- PARTIAL
+- FAIL
+- SKIPPED
+- BLOCKED
+
+A board that returns a challenge page, empty shell, login page, or unrelated HTML must not receive PASS.
+
+Create:
+POST /api/test/all-zones
+POST /api/test/zone
+
+The all-zones endpoint must test all configured boards, capture actual results, and produce one consolidated Telegram test summary if test notifications are enabled.
+
+A per-zone test may return a detailed JSON report without sending a message by default.
+
+The test system must never send the latest existing notice as if it were a newly discovered production notice.
+
+Test messages must have an unmistakable TEST prefix and must not modify production delivery status or mark a real notice as delivered.
+
+Test runs may update operational health and test-run history but must not create fake production notices.
+
+Provide a clear distinction between:
+- Testing source availability.
+- Testing notice parsing.
+- Testing state access and writes.
+- Testing Telegram delivery.
+- Testing complete end-to-end behavior.
+
+## 12. DEDICATED TELEGRAM TEST
+
+Implement a separate Telegram connectivity test.
+
+It must:
+1. Verify that required credentials are present without printing their values.
+2. Call the appropriate Telegram API endpoint to validate the bot.
+3. Send a clearly labelled test message only when the endpoint is explicitly authorized to do so.
+4. Check the Telegram API response and returned message ID.
+5. Record success or failure.
+6. Never create or alter a production notice fingerprint to simulate a test.
+7. Return a clear diagnostic if the chat ID is invalid, the bot is blocked, or the bot lacks permission to post.
+
+A successful Telegram test proves Telegram delivery only. It does not prove that website scraping or state persistence works.
+
+## 13. SCRAPER RELIABILITY
+
+Implement:
+- Configurable request timeouts.
+- A limited number of retries for transient errors.
+- Exponential backoff and jitter.
+- Respect for HTTP 429 and Retry-After.
+- Bounded concurrency.
+- Safe redirects.
+- HTTPS validation.
+- Content-type checks.
+- HTML and JSON parser validation.
+- Pagination detection.
+- Canonical URL handling.
+- Duplicate normalization.
+- Structured logging.
+- Per-board error isolation.
+- Parser version tracking.
+- Test fixtures for each supported page type.
+
+Never convert a failed request into an empty successful result.
+
+Never erase previously stored notice history when a website is unavailable.
+
+If a board fetch fails, retain the prior successful state and mark the current run for that board as failed or partial.
+
+Detect suspiciously empty pages and drastic unexplained drops in notice counts.
+
+Do not let a single unavailable board prevent the system from reporting results for all other boards.
+
+If the run exceeds its safe execution budget, persist progress and resume in a later scheduled batch. Never label a partially completed scan as a successful complete scan.
+
+## 14. TESTING REQUIREMENTS
+
+Create automated tests for:
+
+1. Initial baseline produces zero individual notice alerts.
+2. Existing notices never become new alerts just because the scraper restarts.
+3. Repeated identical notices are deduplicated.
+4. Equivalent canonical URLs map to the same notice identity.
+5. A duplicate notice on two boards does not cause duplicate delivery.
+6. A genuinely new notice is queued and delivered.
+7. A changed document is detected and classified correctly.
+8. An old publication date is handled by the conservative policy.
+9. A missing publication date is not falsely interpreted as proof of novelty.
+10. A fetch timeout preserves previous state.
+11. An HTTP 500 does not produce a successful empty scan.
+12. An HTTP 200 error page is rejected by the parser.
+13. A parser regression is detected.
+14. GitHub API failures stop unsafe notification delivery.
+15. GitHub file-SHA conflicts are handled safely.
+16. Two concurrent scans do not corrupt state or double-claim a notice.
+17. Telegram errors create appropriate delivery statuses.
+18. Uncertain Telegram delivery is not blindly retried without reconciliation.
+19. A test run does not change production delivery status.
+20. An unauthorized cron request is rejected.
+21. An incomplete baseline cannot activate production alerts.
+22. An unavailable board is correctly reported.
+23. A recovery scan does not flood Telegram with historical notices.
+24. A successful run updates durable operational history.
+25. Every enabled board has an explicit test result.
+
+Use mocked HTTP responses and saved HTML fixtures for deterministic unit and integration tests. Add live tests for official sources separately so that transient internet failures do not make the core unit-test suite unreliable.
+
+Do not claim that tests pass until the test runner actually confirms it.
+
+## 15. MONITORING AND HEALTH
+
+Track:
+- Last attempted run.
+- Last successful complete run.
+- Last successful run for each board.
+- Consecutive fetch failures.
+- Parser failures.
+- Total valid notices found.
+- New notices detected.
+- Telegram messages delivered.
+- Failed and uncertain deliveries.
+- GitHub state-read and state-write failures.
+- Current baseline status.
+- Current scan progress.
+- Runtime duration.
+- Lock acquisition failures.
+
+The health endpoint should return a concise JSON response with overall status, baseline readiness, last successful run, current scan state, and a summary of board health.
+
+Do not report overall success when the state store is unavailable or required scans remain incomplete.
+
+Provide a separate operational alert for repeated failures, with rate limiting so that a broken website cannot flood Telegram.
+
+## 16. SECURITY
+
+Use server-side secrets only.
+
+Validate every administrative request.
+
+Do not accept arbitrary user-supplied URLs for unrestricted scraping.
+
+Prevent server-side request forgery by restricting fetches to approved official domains and verified redirect destinations.
+
+Validate GitHub repository paths and branch configuration.
+
+Do not log full authorization headers, tokens, or sensitive request payloads.
+
+Protect state mutation against unauthorized and concurrent writes.
+
+Include a security checklist in the README.
+
+## 17. DELIVERABLES
+
+Generate the actual project files, not merely a high-level description.
+
+Deliver:
+- Complete TypeScript source.
+- package.json and lockfile where supported.
+- TypeScript configuration.
+- Verified board configuration.
+- Persistent GitHub state implementation.
+- Durable delivery queue and concurrency handling.
+- Telegram message sender.
+- Authenticated cron endpoint.
+- All-zones test endpoint.
+- Per-zone test endpoint.
+- Telegram test endpoint.
+- Bootstrap and dry-run endpoints.
+- Unit and integration tests.
+- Representative HTML fixtures.
+- .env.example.
+- .gitignore.
+- README with installation, deployment, secrets, GitHub setup, cron-job.org configuration, testing, troubleshooting, and recovery.
+- Sample health response.
+- Sample all-zones test report.
+- Example state schema.
+- Deployment instructions for Google Cloud Run or the selected supported host.
+
+Do not include real credentials or invent successful live test results.
+
+## 18. IMPLEMENTATION WORKFLOW
+
+Work in phases.
+
+Phase A — Inspect the actual official portal and verify board discovery.
+
+Phase B — Design notice identity, baseline logic, persistent state, delivery states, and concurrency protection.
+
+Phase C — Implement fetching, parsing, normalization, and deduplication.
+
+Phase D — Implement GitHub state persistence and safe state migrations.
+
+Phase E — Implement Telegram delivery and recovery logic.
+
+Phase F — Implement the cron, test, health, bootstrap, and dry-run endpoints.
+
+Phase G — Build fixtures and automated tests.
+
+Phase H — Run tests and resolve all reproducible failures.
+
+Phase I — Prepare the GitHub repository and deploy the server.
+
+Phase J — Configure secrets and cron-job.org.
+
+Phase K — Execute the all-zones test and Telegram test.
+
+Phase L — Establish the production baseline with individual alerts disabled.
+
+Phase M — Verify the persisted baseline and perform a dry run.
+
+Phase N — Enable production delivery and verify the next scheduled execution.
+
+At the end of every phase, summarize:
+- Files created or modified.
+- Tests actually run.
+- Results observed.
+- Remaining failures.
+- Required user actions.
+
+Do not silently skip a phase.
+
+Do not say that deployment, cron configuration, Telegram delivery, or GitHub integration is complete unless it has actually been performed and verified.
+
+## 19. FINAL ACCEPTANCE CRITERIA
+
+The project is ready for production only when:
+
+- All intended regional boards are discovered and accounted for.
+- Every enabled board has a verified source and a working parser or an explicitly documented limitation.
+- Baseline initialization stores historical notices without sending individual historical alerts.
+- Persistent state survives a deployment and restart.
+- Identical notices do not generate duplicate production alerts.
+- New notices generate alerts only after passing validation.
+- State failures prevent unsafe delivery.
+- Concurrent execution cannot corrupt state or blindly double-claim notices.
+- The all-zones test reports actual results for every configured board.
+- The Telegram test confirms a real API response.
+- Unit and integration tests pass.
+- The production endpoint is authenticated.
+- cron-job.org can execute the endpoint within its supported timeout.
+- Failure states are visible and recoverable.
+- Documentation accurately reflects the implemented behavior.
+
+Start with Phase A. Inspect the real official website, explain the verified source architecture, then implement the project in small, testable phases. Do not invent website structures, successful tests, board counts, or deployment outcomes.

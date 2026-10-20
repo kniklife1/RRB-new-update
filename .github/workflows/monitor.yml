@@ -1,0 +1,162 @@
+name: RRB Official Notice Monitor
+
+on:
+  schedule:
+    # Runs every 10 minutes (UTC; corresponds to every 10 minutes in Asia/Kolkata IST)
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Execution mode to run'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - dry_run
+          - bootstrap
+          - all_zones
+          - telegram_test
+      execution_target:
+        description: 'Run directly in GitHub Actions runner (direct_cli) or trigger deployed HTTP server (remote_endpoint)'
+        required: true
+        default: 'direct_cli'
+        type: choice
+        options:
+          - direct_cli
+          - remote_endpoint
+      use_fixtures:
+        description: 'Use deterministic offline HTML fixtures instead of live NIC network fetches'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      run_unit_tests:
+        description: 'Run automated test suite before monitor execution'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+# Least-privilege permissions: contents:write is required so the monitor can read/update
+# state/notices.json via the GitHub Contents API with optimistic SHA concurrency control.
+permissions:
+  contents: write
+
+# Prevent overlapping workflow runs from racing or cancelling an in-flight Telegram delivery checkpoint.
+concurrency:
+  group: rrb-notice-monitor-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Scan 22 RRB Boards & Dispatch Verified Alerts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Cache npm dependencies
+        if: ${{ ((github.event_name != 'workflow_dispatch') || (inputs.execution_target == 'direct_cli') || (inputs.run_unit_tests == 'true')) && hashFiles('package-lock.json') != '' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-22-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-22-npm-
+
+      - name: Install Dependencies
+        if: ${{ (github.event_name != 'workflow_dispatch') || (inputs.execution_target == 'direct_cli') || (inputs.run_unit_tests == 'true') }}
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --legacy-peer-deps --no-audit --no-fund
+          else
+            npm install --legacy-peer-deps --no-audit --no-fund
+          fi
+
+      - name: Run Automated Verification Suite
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_unit_tests == 'true' }}
+        run: npm test
+
+      - name: Execute Monitor via Direct CLI Runner
+        if: ${{ (github.event_name != 'workflow_dispatch') || (inputs.execution_target == 'direct_cli') }}
+        env:
+          # Uses GH_STATE_TOKEN secret if configured, falling back to automatic GITHUB_TOKEN (with contents:write)
+          GITHUB_TOKEN: ${{ secrets.GH_STATE_TOKEN != '' && secrets.GH_STATE_TOKEN || github.token }}
+          GITHUB_OWNER: ${{ vars.GITHUB_OWNER != '' && vars.GITHUB_OWNER || github.repository_owner }}
+          GITHUB_REPO: ${{ vars.GITHUB_REPO != '' && vars.GITHUB_REPO || github.event.repository.name }}
+          GITHUB_BRANCH: ${{ vars.GITHUB_BRANCH != '' && vars.GITHUB_BRANCH || github.ref_name }}
+          GITHUB_STATE_PATH: ${{ vars.GITHUB_STATE_PATH != '' && vars.GITHUB_STATE_PATH || 'state/notices.json' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          OLDER_PUBLICATION_DATE_POLICY: ${{ vars.OLDER_PUBLICATION_DATE_POLICY != '' && vars.OLDER_PUBLICATION_DATE_POLICY || 'quarantine' }}
+          CRON_EXECUTION_BUDGET_MS: '180000'
+          MONITOR_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'production' }}
+          USE_FIXTURES: ${{ github.event_name == 'workflow_dispatch' && inputs.use_fixtures || 'false' }}
+        run: |
+          npx tsx scripts/run-monitor.ts --mode="${MONITOR_MODE}" --fixtures="${USE_FIXTURES}"
+
+      - name: Trigger Remote Deployed Server Endpoint
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.execution_target == 'remote_endpoint' }}
+        env:
+          MONITOR_API_URL: ${{ secrets.MONITOR_API_URL }}
+          CRON_AUTH_TOKEN: ${{ secrets.CRON_AUTH_TOKEN }}
+          ADMIN_AUTH_TOKEN: ${{ secrets.ADMIN_AUTH_TOKEN }}
+          MODE: ${{ inputs.mode }}
+          USE_FIXTURES: ${{ inputs.use_fixtures }}
+        run: |
+          if [ -z "${MONITOR_API_URL}" ]; then
+            echo "::error::MONITOR_API_URL secret is not configured. Configure MONITOR_API_URL or use execution_target=direct_cli."
+            exit 1
+          fi
+          BASE_URL="${MONITOR_API_URL%/}"
+          if [ "${MODE}" = "bootstrap" ]; then
+            ENDPOINT="${BASE_URL}/api/admin/bootstrap"
+            TOKEN="${ADMIN_AUTH_TOKEN}"
+            BODY="{\"useFixtures\": ${USE_FIXTURES}}"
+          elif [ "${MODE}" = "dry_run" ]; then
+            ENDPOINT="${BASE_URL}/api/admin/dry-run"
+            TOKEN="${ADMIN_AUTH_TOKEN}"
+            BODY="{\"useFixtures\": ${USE_FIXTURES}}"
+          elif [ "${MODE}" = "all_zones" ]; then
+            ENDPOINT="${BASE_URL}/api/test/all-zones"
+            TOKEN="${CRON_AUTH_TOKEN}"
+            BODY="{\"useFixtures\": ${USE_FIXTURES}, \"sendTelegramTestSummary\": false}"
+          elif [ "${MODE}" = "telegram_test" ]; then
+            ENDPOINT="${BASE_URL}/api/test/telegram"
+            TOKEN="${ADMIN_AUTH_TOKEN}"
+            BODY="{\"sendTestMessage\": true}"
+          else
+            ENDPOINT="${BASE_URL}/api/cron/run"
+            TOKEN="${CRON_AUTH_TOKEN}"
+            BODY="{\"mode\": \"production\", \"useFixtures\": ${USE_FIXTURES}}"
+          fi
+
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::Required bearer token secret (CRON_AUTH_TOKEN or ADMIN_AUTH_TOKEN) is missing for mode ${MODE}."
+            exit 1
+          fi
+
+          HTTP_STATUS=$(curl -sS -o /tmp/monitor_response.json -w "%{http_code}" \
+            -X POST "${ENDPOINT}" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "${BODY}")
+
+          cat /tmp/monitor_response.json
+          echo ""
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "::error::Remote endpoint ${ENDPOINT} returned HTTP ${HTTP_STATUS}"
+            exit 1
+          fi

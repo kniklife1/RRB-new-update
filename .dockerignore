@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+.local-state
+.playwright-cli
+.aistudio
+*.log
+*.zip
+public/*.zip
+public/assets
+.git
