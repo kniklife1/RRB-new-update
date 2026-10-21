@@ -6,13 +6,7 @@
   "lastAttemptedRunAt": "2026-10-21T00:37:17.232Z",
   "lastRunStatus": "FAILED",
   "lastRunId": "production_1792543037232",
-  "activeLock": {
-    "lockId": "lock_production_1792543037232",
-    "ownerRunId": "production_1792543037232",
-    "operation": "cron_scan",
-    "acquiredAt": "2026-10-21T00:37:17.232Z",
-    "expiresAt": "2026-10-21T00:38:47.232Z"
-  },
+  "activeLock": null,
   "resumableScanQueue": null,
   "boardStatuses": {
     "RRB_CENTRAL": {
@@ -1458,6 +1452,23 @@
   "failedDeliveries": {},
   "uncertainDeliveries": {},
   "recentRunHistory": [
+    {
+      "runId": "production_1792543037232",
+      "mode": "cron",
+      "startedAt": "2026-10-21T00:37:17.232Z",
+      "completedAt": "2026-10-21T00:37:32.535Z",
+      "durationMs": 15303,
+      "status": "FAILED",
+      "boardsScanned": 22,
+      "boardsSucceeded": 0,
+      "boardsFailed": 22,
+      "noticesFound": 0,
+      "newNoticesEligible": 0,
+      "messagesDelivered": 0,
+      "messagesFailed": 0,
+      "messagesUncertain": 0,
+      "summary": "Scanned 22 boards (0 OK, 22 failed). Eligible new: 0, revised: 0, delivered: 0."
+    },
     {
       "runId": "production_1792542640775",
       "mode": "cron",
