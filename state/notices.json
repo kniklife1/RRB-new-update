@@ -6,13 +6,7 @@
   "lastAttemptedRunAt": "2026-10-21T14:38:57.069Z",
   "lastRunStatus": "FAILED",
   "lastRunId": "production_1792593537069",
-  "activeLock": {
-    "lockId": "lock_production_1792593537069",
-    "ownerRunId": "production_1792593537069",
-    "operation": "cron_scan",
-    "acquiredAt": "2026-10-21T14:38:57.069Z",
-    "expiresAt": "2026-10-21T14:40:27.069Z"
-  },
+  "activeLock": null,
   "resumableScanQueue": null,
   "boardStatuses": {
     "RRB_CENTRAL": {
@@ -1459,6 +1453,23 @@
   "uncertainDeliveries": {},
   "recentRunHistory": [
     {
+      "runId": "production_1792593537069",
+      "mode": "cron",
+      "startedAt": "2026-10-21T14:38:57.069Z",
+      "completedAt": "2026-10-21T14:39:13.932Z",
+      "durationMs": 16863,
+      "status": "FAILED",
+      "boardsScanned": 22,
+      "boardsSucceeded": 0,
+      "boardsFailed": 22,
+      "noticesFound": 0,
+      "newNoticesEligible": 0,
+      "messagesDelivered": 0,
+      "messagesFailed": 0,
+      "messagesUncertain": 0,
+      "summary": "Scanned 22 boards (0 OK, 22 failed). Eligible new: 0, revised: 0, delivered: 0."
+    },
+    {
       "runId": "production_1792591473677",
       "mode": "cron",
       "startedAt": "2026-10-21T14:04:33.677Z",
@@ -2280,23 +2291,6 @@
       "startedAt": "2026-10-21T00:00:40.079Z",
       "completedAt": "2026-10-21T00:00:44.935Z",
       "durationMs": 4856,
-      "status": "FAILED",
-      "boardsScanned": 22,
-      "boardsSucceeded": 0,
-      "boardsFailed": 22,
-      "noticesFound": 0,
-      "newNoticesEligible": 0,
-      "messagesDelivered": 0,
-      "messagesFailed": 0,
-      "messagesUncertain": 0,
-      "summary": "Scanned 22 boards (0 OK, 22 failed). Eligible new: 0, revised: 0, delivered: 0."
-    },
-    {
-      "runId": "production_1792540786473",
-      "mode": "cron",
-      "startedAt": "2026-10-20T23:59:46.473Z",
-      "completedAt": "2026-10-21T00:00:01.577Z",
-      "durationMs": 15104,
       "status": "FAILED",
       "boardsScanned": 22,
       "boardsSucceeded": 0,
