@@ -596,7 +596,7 @@ test('18. Uncertain Telegram delivery (timeout after dispatch) is quarantined an
 
   const newRanchiNotice = {
     noticeCode: 'CEN 01/2026-RNC-NEW',
-    title: 'CEN 01/2026 (ALP): Final Empanelment List for RRB Ranchi',
+    title: 'CEN 01/2026 (ALP): Final Empanelment Result & Merit List for RRB Ranchi',
     publicationDate: '2026-10-20',
     category: 'Result & Cut-Off Marks',
     pdfPath: '/notices/2026/RNC_ALP_Final_Empanelment_Oct20.pdf',
@@ -653,7 +653,7 @@ test('19. An all-zones test run or dry run does not modify production delivery s
 
   const newChennaiNotice = {
     noticeCode: 'CEN 03/2026-MAS-DRY',
-    title: 'CEN 03/2026 (JE): Dry Run Test Notice for RRB Chennai',
+    title: 'CEN 03/2026 (JE): Dry Run Recruitment Notification Test Notice for RRB Chennai',
     publicationDate: '2026-10-20',
     category: 'General Candidate Notice',
     pdfPath: '/notices/2026/MAS_DryRun_Test.pdf',
@@ -843,7 +843,7 @@ test('26. Future typo publication date is quarantined and does not poison the bo
   };
   const validTodayNotice = {
     noticeCode: 'CEN 04/2026-VALID',
-    title: 'CEN 04/2026: Valid Today Notice After Typo Row',
+    title: 'CEN 04/2026: Valid Today Result & Cut-Off Notice After Typo Row',
     publicationDate: '2026-10-20',
     category: 'Result & Cut-Off Marks',
     pdfPath: '/notices/2026/Valid_Oct20.pdf',
@@ -889,7 +889,7 @@ test('27. Pre-delivery state checkpoint write failure halts before Telegram disp
   let tgCalls = 0;
   const newNotice = {
     noticeCode: 'CEN 05/2026-BPL-CHK',
-    title: 'CEN 05/2026: Bhopal Notice Testing Pre-Delivery Checkpoint',
+    title: 'CEN 05/2026: Bhopal Result Notice Testing Pre-Delivery Checkpoint',
     publicationDate: '2026-10-20',
     category: 'Result & Cut-Off Marks',
     pdfPath: '/notices/2026/BPL_Checkpoint.pdf',
@@ -1035,7 +1035,7 @@ test('30. Reconciling an uncertain delivery updates deduplication hashes or requ
 
   const notice = {
     noticeCode: 'CEN 07/2026-SC-UNC',
-    title: 'CEN 07/2026: Secunderabad Uncertain Notice Test',
+    title: 'CEN 07/2026: Secunderabad Uncertain Result Notice Test',
     publicationDate: '2026-10-20',
     category: 'Result & Cut-Off Marks',
     pdfPath: '/notices/2026/SC_Uncertain.pdf',

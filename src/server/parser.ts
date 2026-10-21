@@ -425,6 +425,7 @@ export function parseBoardPageContent(
   interface RawCandidate {
     noticeCode?: string;
     title: string;
+    contentText?: string;
     dateText: string;
     categoryText?: string;
     detailUrl: string;
@@ -461,6 +462,11 @@ export function parseBoardPageContent(
     let dateText = $row.attr('data-pub-date') || '';
     let categoryText = $row.attr('data-category') || '';
     let noticeCode = $row.attr('data-notice-id') || '';
+    const extraDescription = normalizeText(
+      $row.attr('data-content') ||
+        $row.find('.notice-description, .notice-summary, .notice-body, .description').text() ||
+        ''
+    );
     let titleCandidate = '';
 
     cells.each((idx, cell) => {
@@ -494,6 +500,7 @@ export function parseBoardPageContent(
     rawCandidates.push({
       noticeCode: noticeCode || undefined,
       title: titleCandidate,
+      contentText: extraDescription || undefined,
       dateText: dateText || rowText,
       categoryText: categoryText || undefined,
       detailUrl,
@@ -521,6 +528,11 @@ export function parseBoardPageContent(
     const title = normalizeText(titleEl.text() || $card.text());
     if (!title || title.length < 8) return;
 
+    const contentEl = $card.find('.notice-description, .notice-summary, .notice-body, .description, p');
+    const contentText = normalizeText(
+      $card.attr('data-content') || contentEl.text() || ''
+    );
+
     const dateEl = $card.find('.notice-date, time, .date, [data-date]').first();
     const dateText =
       $card.attr('data-pub-date') ||
@@ -540,6 +552,7 @@ export function parseBoardPageContent(
     rawCandidates.push({
       noticeCode,
       title,
+      contentText: contentText || undefined,
       dateText,
       categoryText,
       detailUrl,
@@ -599,6 +612,9 @@ function parseStructuredJsonPayload(
   const rawCandidates = items
     .map((item) => {
       const title = normalizeText(String(item.title || item.subject || ''));
+      const contentText = normalizeText(
+        String(item.content || item.description || item.summary || item.body || '')
+      );
       const rawUrl = String(item.url || item.officialNoticeUrl || item.pdfUrl || '');
       if (!title || !rawUrl) return null;
       const detailUrl = canonicalizeOfficialUrl(rawUrl, board.sourceUrl);
@@ -611,6 +627,7 @@ function parseStructuredJsonPayload(
       return {
         noticeCode: item.noticeId ? String(item.noticeId) : undefined,
         title,
+        contentText: contentText || undefined,
         dateText: String(item.publicationDate || item.date || ''),
         categoryText: item.category ? String(item.category) : undefined,
         detailUrl,
@@ -626,6 +643,7 @@ function normalizeAndDeduplicateCandidates(
   rawCandidates: Array<{
     noticeCode?: string;
     title: string;
+    contentText?: string;
     dateText: string;
     categoryText?: string;
     detailUrl: string;
@@ -679,6 +697,7 @@ function normalizeAndDeduplicateCandidates(
       boardId: board.boardId,
       boardName: board.boardName,
       title: cleanTitle,
+      ...(cand.contentText ? { contentText: cand.contentText } : {}),
       officialNoticeUrl: canonicalUrl,
       canonicalUrl,
       attachmentUrls,

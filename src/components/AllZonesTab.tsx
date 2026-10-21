@@ -88,24 +88,9 @@ export const AllZonesTab: React.FC<AllZonesTabProps> = ({
               <button
                 type="button"
                 onClick={() => setUseFixtures(true)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  useFixtures
-                    ? 'bg-amber-500 text-slate-950 font-semibold'
-                    : 'text-slate-400 hover:text-slate-100'
-                }`}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md bg-amber-500 text-slate-950 whitespace-nowrap shrink-0 cursor-default"
               >
-                Deterministic Fixtures
-              </button>
-              <button
-                type="button"
-                onClick={() => setUseFixtures(false)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  !useFixtures
-                    ? 'bg-amber-500 text-slate-950 font-semibold'
-                    : 'text-slate-400 hover:text-slate-100'
-                }`}
-              >
-                Live Network Fetch
+                Deterministic Fixtures (Default)
               </button>
             </div>
 

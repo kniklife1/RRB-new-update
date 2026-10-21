@@ -4,8 +4,11 @@ import {
   isApprovedOfficialUrl,
 } from './boards.ts';
 import {
+  DEFAULT_MAX_NOTIFICATIONS_PER_RUN,
+  DEFAULT_MAX_NOTICE_AGE_DAYS,
   createDeliveryQueueItem,
   evaluateNoticeEligibility,
+  parseConfiguredKeywords,
 } from './eligibility.ts';
 import {
   BOARD_SEED_NOTICES,
@@ -157,7 +160,8 @@ export async function fetchBoardSource(
     };
   }
 
-  if (options?.useFixtures) {
+  const effectiveUseFixtures = options?.useFixtures ?? (options?.fetchImpl ? false : true);
+  if (effectiveUseFixtures) {
     const html = buildOfficialBoardHtmlFixture(
       board.boardId,
       runtimeInjectedNoticesByBoard[board.boardId] || []
@@ -548,7 +552,7 @@ export async function executeAllZonesTest(options?: {
   const startMs = Date.now();
   const runId = `test_all_${startMs}`;
   const executedAt = new Date(startMs).toISOString();
-  const useFixtures = options?.useFixtures ?? false;
+  const useFixtures = options?.useFixtures ?? (options?.fetchImpl ? false : true);
 
   const concurrency = Math.max(1, Number(process.env.SCRAPER_CONCURRENCY) || 6);
   const reports: ZoneTestReport[] = [];
@@ -907,6 +911,10 @@ export interface CronMonitorRunOptions extends FetchBoardOptions {
   executionBudgetMs?: number;
   maxBoardsPerBatch?: number;
   olderPublicationDatePolicy?: 'quarantine' | 'allow_if_recent' | 'suppress';
+  maxNoticeAgeDays?: number;
+  maxAcceptableAgeDays?: number;
+  filterKeywords?: string[] | string;
+  maxNotificationsPerRun?: number;
   nowIso?: string;
   runId?: string;
   telegramFetchImpl?: typeof fetch;
@@ -957,6 +965,20 @@ export async function executeMonitorRun(
     options?.olderPublicationDatePolicy ||
     (process.env.OLDER_PUBLICATION_DATE_POLICY as 'quarantine' | 'allow_if_recent' | 'suppress') ||
     'quarantine';
+  const rawMaxAge =
+    options?.maxNoticeAgeDays ??
+    options?.maxAcceptableAgeDays ??
+    Number(options?.env?.MAX_NOTICE_AGE_DAYS || process.env.MAX_NOTICE_AGE_DAYS);
+  const maxAcceptableAgeDays =
+    Number.isFinite(rawMaxAge) && rawMaxAge > 0 ? rawMaxAge : DEFAULT_MAX_NOTICE_AGE_DAYS;
+  const filterKeywords = parseConfiguredKeywords(options?.filterKeywords, options?.env);
+  const rawMaxNotifs =
+    options?.maxNotificationsPerRun ??
+    Number(options?.env?.MAX_NOTIFICATIONS_PER_RUN || process.env.MAX_NOTIFICATIONS_PER_RUN);
+  const maxNotificationsPerRun =
+    Number.isFinite(rawMaxNotifs) && rawMaxNotifs > 0
+      ? Math.floor(rawMaxNotifs)
+      : DEFAULT_MAX_NOTIFICATIONS_PER_RUN;
 
   // 1. Acquire durable lock (fail closed if state read or lock write fails)
   let lockInfo: Awaited<ReturnType<typeof acquireDurableLock>>;
@@ -1179,6 +1201,8 @@ export async function executeMonitorRun(
         boardIsUnbaselined,
         boardIsRecoveringOrUnbaselined: boardWasUnbaselinedOrRecovering,
         olderPublicationDatePolicy: olderDatePolicy,
+        maxAcceptableAgeDays,
+        filterKeywords,
         referenceTimeIso: nowIso,
         seenCrossBoardKeysInCurrentRun,
       });
@@ -1201,9 +1225,17 @@ export async function executeMonitorRun(
         eligibleNoticeTitles.push(`[${board.boardName}] ${decision.updatedNotice.title}`);
 
         if (mode === 'production') {
-          state.knownNotices[decision.updatedNotice.noticeId] = decision.updatedNotice;
-          const qItem = createDeliveryQueueItem(decision.updatedNotice, nowIso);
-          state.pendingDeliveries[qItem.deliveryId] = qItem;
+          if (Object.keys(state.pendingDeliveries).length < maxNotificationsPerRun) {
+            state.knownNotices[decision.updatedNotice.noticeId] = decision.updatedNotice;
+            const qItem = createDeliveryQueueItem(decision.updatedNotice, nowIso);
+            state.pendingDeliveries[qItem.deliveryId] = qItem;
+          } else {
+            // Per-run notification limit reached: record notice in knownNotices so it will not trigger duplicates
+            state.knownNotices[decision.updatedNotice.noticeId] = {
+              ...decision.updatedNotice,
+              deliveryStatus: 'suppressed_filter',
+            };
+          }
         }
       } else if (mode === 'production') {
         // Persist updated observation timestamps or baseline/quarantine metadata
@@ -1292,6 +1324,7 @@ export async function executeMonitorRun(
   // 5. Persist pre-delivery state checkpoint (atomic claim before calling Telegram API!)
   // If this state write fails, fail closed and NEVER send any Telegram alert.
   let deliveriesUncertain = 0;
+  let claimedForCurrentRun = 0;
   const pendingItems = Object.values(state.pendingDeliveries);
   for (const item of pendingItems) {
     // Never blindly retry an item that was moved to uncertainDeliveries
@@ -1316,6 +1349,14 @@ export async function executeMonitorRun(
       }
       continue;
     }
+    if (claimedForCurrentRun >= maxNotificationsPerRun) {
+      delete state.pendingDeliveries[item.deliveryId];
+      if (state.knownNotices[item.noticeId]) {
+        state.knownNotices[item.noticeId].deliveryStatus = 'suppressed_filter';
+      }
+      continue;
+    }
+    claimedForCurrentRun += 1;
     item.status = 'sending';
     item.claimedByRunId = runId;
     item.claimedAt = nowIso;
@@ -1331,7 +1372,7 @@ export async function executeMonitorRun(
     const checkpointEnv = await store.writeState(
       state,
       currentSha,
-      `chore(queue): claim ${pendingItems.length} pending deliveries for ${runId}`
+      `chore(queue): claim ${claimedForCurrentRun} pending deliveries for ${runId}`
     );
     currentSha = checkpointEnv.sha;
   } catch (writeErr) {

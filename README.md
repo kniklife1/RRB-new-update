@@ -75,7 +75,7 @@ Configure the following server-side secrets in your host environment (never comm
    curl -X POST https://YOUR-DEPLOYED-HOST/api/admin/bootstrap \
      -H "Authorization: Bearer YOUR_ADMIN_AUTH_TOKEN" \
      -H "Content-Type: application/json" \
-     -d '{"useFixtures": false}'
+     -d '{"useFixtures": true}'
    ```
    - Discovers and parses all 22 boards.
    - Records every existing notice with `baselineStatus: "BASELINED_INITIAL"` and `deliveryStatus: "suppressed_baseline"`.
@@ -87,7 +87,7 @@ Configure the following server-side secrets in your host environment (never comm
    curl -X POST https://YOUR-DEPLOYED-HOST/api/admin/dry-run \
      -H "Authorization: Bearer YOUR_ADMIN_AUTH_TOKEN" \
      -H "Content-Type: application/json" \
-     -d '{"useFixtures": false}'
+     -d '{"useFixtures": true}'
    ```
    - Confirm `newNoticesEligible: 0` on existing notices.
 

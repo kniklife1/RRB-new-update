@@ -79,24 +79,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               <button
                 type="button"
                 onClick={() => setUseFixtures(true)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  useFixtures
-                    ? 'bg-slate-800 text-slate-50 border border-slate-700 font-semibold'
-                    : 'text-slate-400 hover:text-slate-100'
-                }`}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md bg-slate-800 text-slate-50 border border-slate-700 whitespace-nowrap shrink-0 cursor-default"
               >
-                Fixture Verification
-              </button>
-              <button
-                type="button"
-                onClick={() => setUseFixtures(false)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  !useFixtures
-                    ? 'bg-slate-800 text-slate-50 border border-slate-700 font-semibold'
-                    : 'text-slate-400 hover:text-slate-100'
-                }`}
-              >
-                Live Network Probe
+                Fixture Verification (Default)
               </button>
             </div>
 

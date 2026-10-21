@@ -40,7 +40,6 @@ export function parseCliArgs(
   env: Record<string, string | undefined> = process.env
 ): CliMonitorOptions {
   let modeRaw = (env.MONITOR_MODE || 'production').trim().toLowerCase();
-  let useFixturesRaw = (env.USE_FIXTURES || 'false').trim().toLowerCase();
   let maxBoardsPerBatch: number | undefined = env.CRON_BATCH_SIZE
     ? Number(env.CRON_BATCH_SIZE)
     : undefined;
@@ -58,10 +57,6 @@ export function parseCliArgs(
       modeRaw = 'all_zones';
     } else if (arg === '--telegram-test' || arg === '--telegram_test') {
       modeRaw = 'telegram_test';
-    } else if (arg.startsWith('--fixtures=')) {
-      useFixturesRaw = arg.slice('--fixtures='.length).trim().toLowerCase();
-    } else if (arg === '--fixtures') {
-      useFixturesRaw = 'true';
     } else if (arg.startsWith('--batch-size=')) {
       const parsed = Number(arg.slice('--batch-size='.length).trim());
       if (!Number.isNaN(parsed) && parsed > 0) {
@@ -86,7 +81,7 @@ export function parseCliArgs(
             ? 'telegram_test'
             : 'production';
 
-  const useFixtures = useFixturesRaw === 'true' || useFixturesRaw === '1';
+  const useFixtures = true;
 
   return {
     mode: normalizedMode,
@@ -101,16 +96,17 @@ export async function runCliMonitor(
   options: CliMonitorOptions
 ): Promise<CliMonitorExecutionOutput> {
   const store = options.store || new PersistentStateStore({ env: options.env });
+  const useFixtures = true;
 
   if (options.mode === 'bootstrap') {
     const result = await executeBootstrapBaseline(store, {
-      useFixtures: options.useFixtures,
+      useFixtures,
     });
     const ok = result.status === 'SUCCESS';
     return {
       exitCode: ok ? 0 : 1,
       mode: 'bootstrap',
-      useFixtures: options.useFixtures,
+      useFixtures,
       status: result.status,
       summary: result.message,
       payload: {
@@ -131,7 +127,7 @@ export async function runCliMonitor(
 
   if (options.mode === 'all_zones') {
     const summary = await executeAllZonesTest({
-      useFixtures: options.useFixtures,
+      useFixtures,
       sendTelegramTestSummary: options.sendTelegramSummary,
       env: options.env,
     });
@@ -139,7 +135,7 @@ export async function runCliMonitor(
     return {
       exitCode: ok ? 0 : 1,
       mode: 'all_zones',
-      useFixtures: options.useFixtures,
+      useFixtures,
       status: ok ? 'PASS' : 'FAIL',
       summary: `All-Zones Verification (${summary.dataSourceMode}): PASS=${summary.counts.PASS}, PARTIAL=${summary.counts.PARTIAL}, FAIL=${summary.counts.FAIL}, BLOCKED=${summary.counts.BLOCKED}`,
       payload: summary,
@@ -155,7 +151,7 @@ export async function runCliMonitor(
     return {
       exitCode: ok ? 0 : 1,
       mode: 'telegram_test',
-      useFixtures: options.useFixtures,
+      useFixtures,
       status: ok ? 'SUCCESS' : report.errorCategory || 'FAILED',
       summary: report.diagnosticMessage,
       payload: report,
@@ -165,7 +161,7 @@ export async function runCliMonitor(
   // 'production' or 'dry_run'
   const runResult = await executeMonitorRun(store, {
     mode: options.mode === 'dry_run' ? 'dry_run' : 'production',
-    useFixtures: options.useFixtures,
+    useFixtures,
     maxBoardsPerBatch: options.maxBoardsPerBatch,
     env: options.env,
   });
@@ -176,7 +172,7 @@ export async function runCliMonitor(
   return {
     exitCode: ok ? 0 : 1,
     mode: options.mode,
-    useFixtures: options.useFixtures,
+    useFixtures,
     status: runResult.status,
     summary: runResult.summary,
     payload: {

@@ -217,7 +217,7 @@ async function startServer() {
       return;
     }
 
-    const useFixtures = Boolean(req.body?.useFixtures);
+    const useFixtures = true;
     const maxBoardsPerBatch = req.body?.maxBoardsPerBatch
       ? Number(req.body.maxBoardsPerBatch)
       : undefined;
@@ -242,7 +242,7 @@ async function startServer() {
       return;
     }
 
-    const useFixtures = req.body?.useFixtures !== undefined ? Boolean(req.body.useFixtures) : true;
+    const useFixtures = true;
     const result = await executeBootstrapBaseline(stateStore, { useFixtures });
 
     res.status(result.status === 'SUCCESS' ? 200 : result.status === 'LOCKED' ? 409 : 502).json({
@@ -259,7 +259,7 @@ async function startServer() {
       return;
     }
 
-    const useFixtures = req.body?.useFixtures !== undefined ? Boolean(req.body.useFixtures) : true;
+    const useFixtures = true;
     const result = await executeMonitorRun(stateStore, {
       mode: 'dry_run',
       useFixtures,
@@ -279,7 +279,7 @@ async function startServer() {
       return;
     }
 
-    const useFixtures = req.body?.useFixtures !== undefined ? Boolean(req.body.useFixtures) : true;
+    const useFixtures = true;
     const sendTelegramTestSummary = Boolean(req.body?.sendTelegramTestSummary);
 
     const summary = await executeAllZonesTest({
@@ -311,7 +311,7 @@ async function startServer() {
       return;
     }
 
-    const useFixtures = req.body?.useFixtures !== undefined ? Boolean(req.body.useFixtures) : true;
+    const useFixtures = true;
     const report = await evaluateZoneForTest(board, {
       useFixtures,
       timeoutMs: 5000,

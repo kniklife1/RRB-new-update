@@ -33,6 +33,7 @@ export type DeliveryStatus =
   | 'uncertain'
   | 'suppressed_baseline'
   | 'suppressed_duplicate'
+  | 'suppressed_filter'
   | 'quarantined';
 
 export type VerificationStatus = 'VERIFIED' | 'NEEDS_REVIEW' | 'REJECTED';
@@ -60,6 +61,7 @@ export interface NormalizedNotice {
   boardId: string;
   boardName: string;
   title: string;
+  contentText?: string;
   officialNoticeUrl: string;
   canonicalUrl: string;
   attachmentUrls: string[];

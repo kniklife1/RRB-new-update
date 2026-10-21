@@ -9,12 +9,19 @@ import {
   isApprovedOfficialUrl,
 } from '../boards.ts';
 import {
+  DEFAULT_NOTICE_FILTER_KEYWORDS,
+  matchesNoticeKeywords,
+} from '../eligibility.ts';
+import {
   executeAllZonesTest,
   executeBootstrapBaseline,
   executeMonitorRun,
   fetchBoardSource,
 } from '../engine.ts';
-import { buildCombinedUnifiedPortalHtmlFixture } from '../fixtures/htmlFixtures.ts';
+import {
+  buildCombinedUnifiedPortalHtmlFixture,
+  buildOfficialBoardHtmlFixture,
+} from '../fixtures/htmlFixtures.ts';
 import { computeNoticeHashes } from '../parser.ts';
 import {
   createInitialMonitorState,
@@ -22,6 +29,7 @@ import {
   validateAndMigrateState,
 } from '../stateStore.ts';
 import type { StateEnvelope, StateStoreAdapter } from '../stateStore.ts';
+import { formatProductionNoticeTelegramMessage } from '../telegram.ts';
 import type { MonitorState } from '../types.ts';
 import { parseCliArgs, runCliMonitor } from '../../../scripts/run-monitor.ts';
 
@@ -92,6 +100,13 @@ test('33. GitHub Actions workflow .github/workflows/monitor.yml has valid schedu
   assert.ok(content.includes('/api/admin/dry-run'), 'Workflow remote mode must target /api/admin/dry-run');
   assert.ok(content.includes('/api/test/all-zones'), 'Workflow remote mode must target /api/test/all-zones');
   assert.ok(content.includes('/api/test/telegram'), 'Workflow remote mode must target /api/test/telegram');
+
+  // Verify use_fixtures input has 'false' removed and 'true' set as mandatory default
+  assert.ok(content.includes("USE_FIXTURES: 'true'"), 'Workflow must enforce USE_FIXTURES: true');
+  assert.ok(content.includes('\\"useFixtures\\": true'), 'Remote endpoint dispatch must enforce useFixtures: true');
+  const useFixturesSection = content.split('use_fixtures:')[1]?.split('run_unit_tests:')[0] || '';
+  assert.ok(useFixturesSection.includes("default: 'true'"), 'use_fixtures must default to true');
+  assert.equal(useFixturesSection.includes("'false'"), false, 'use_fixtures must not offer false option');
 });
 
 // 34. getGitHubConfigFromEnv resolves GitHub Actions automatic environment variables (GITHUB_REPOSITORY, GITHUB_REF_NAME, GH_STATE_TOKEN).
@@ -461,5 +476,244 @@ test('41. Historical notices from retired regional URLs are migrated cleanly wit
   assert.equal(prodRun.newNoticesEligible, 0);
   assert.equal(prodRun.deliveriesSent, 0);
 });
+
+// 42. Keyword filtering matches all 5 required categories case-insensitively with spacing variations and suppresses non-matching notices.
+test('42. Keyword filtering matches Recruitment, Examination, Results, Answer Keys, and Next Stages with spacing variations and rejects unrelated notices', async () => {
+  assert.ok(DEFAULT_NOTICE_FILTER_KEYWORDS.length >= 30);
+
+  // Verify case-insensitivity and spacing/hyphen variations
+  assert.equal(matchesNoticeKeywords({ title: 'CEN 01/2026: CUT-OFF Marks Declared' }).matched, true);
+  assert.equal(matchesNoticeKeywords({ title: 'CEN 01/2026: Cut   Off List' }).matched, true);
+  assert.equal(matchesNoticeKeywords({ title: 'CEN 01/2026: Cutoff Marks' }).matched, true);
+  assert.equal(matchesNoticeKeywords({ title: 'CEN 03/2026: Provisional Answer-Key & Response Sheet' }).matched, true);
+  assert.equal(matchesNoticeKeywords({ title: 'CEN 03/2026: AnswerKey Link' }).matched, true);
+  assert.equal(matchesNoticeKeywords({ title: 'CEN 04/2026: Normalized Score Card Download' }).matched, true);
+  assert.equal(matchesNoticeKeywords({ title: 'CEN 02/2026: Shortlisted for DV and Medical Examination' }).matched, true);
+  assert.equal(matchesNoticeKeywords({ title: 'CEN 05/2026: Schedule for PET / PST & Skill Test' }).matched, true);
+  assert.equal(
+    matchesNoticeKeywords({
+      title: 'CEN 06/2026: Important Candidate Update',
+      contentText: 'Candidates may download their Hall Ticket and City Intimation slip online.',
+    }).matched,
+    true
+  );
+
+  // Verify word-boundary protection for short acronyms (DV, PET, PST) and unrelated notices
+  assert.equal(
+    matchesNoticeKeywords({ title: 'Routine Administrative Circular for Office Canteen & Advance Leave' }).matched,
+    false
+  );
+  assert.equal(
+    matchesNoticeKeywords({ title: 'Corrigendum to Tender for Competitive Printing & Upstream Network Maintenance' }).matched,
+    false
+  );
+
+  // Verify end-to-end suppression in executeMonitorRun for non-matching notices vs delivery for matching notices
+  const store = new CliMemoryStateStore();
+  await executeBootstrapBaseline(store, {
+    useFixtures: true,
+    nowIso: '2026-10-19T10:00:00.000Z',
+  });
+
+  const nonMatchingNotice = {
+    noticeCode: 'ADMIN-2026-01',
+    title: 'Annual Maintenance Contract for Office Air Conditioners at RRB Patna',
+    publicationDate: '2026-10-20',
+    category: 'General Candidate Notice',
+    pdfPath: '/notices/2026/Admin_AMC_Tender.pdf',
+  };
+  const matchingNotice = {
+    noticeCode: 'CEN-2026-PATNA-DV',
+    title: 'CEN 02/2026: Schedule for Document Verification (DV) & Medical Examination at RRB Patna',
+    publicationDate: '2026-10-20',
+    category: 'Document Verification & Panel',
+    pdfPath: '/notices/2026/Patna_DV_Medical_Schedule.pdf',
+  };
+
+  let sentMessages: string[] = [];
+  const runRes = await executeMonitorRun(store, {
+    useFixtures: true,
+    nowIso: '2026-10-20T09:00:00.000Z',
+    fixtureOverrides: {
+      RRB_PATNA: {
+        body: buildOfficialBoardHtmlFixture('RRB_PATNA', [nonMatchingNotice, matchingNotice]),
+      },
+    },
+    env: {
+      TELEGRAM_BOT_TOKEN: '123456789:AAH_TEST_TOKEN_VALID_FORMAT',
+      TELEGRAM_CHAT_ID: '-100987654321',
+    },
+    telegramFetchImpl: async (_url, init) => {
+      const body = JSON.parse(String(init?.body || '{}'));
+      sentMessages.push(body.text);
+      return new Response(JSON.stringify({ ok: true, result: { message_id: 701 } }), { status: 200 });
+    },
+  });
+
+  assert.equal(runRes.status, 'SUCCESS');
+  assert.equal(runRes.newNoticesEligible, 1);
+  assert.equal(runRes.deliveriesSent, 1);
+  assert.equal(sentMessages.length, 1);
+  assert.ok(sentMessages[0].includes('Document Verification'));
+  assert.equal(sentMessages[0].includes('Air Conditioners'), false);
+});
+
+// 43. Configurable filterKeywords and configurable age cutoff (maxNoticeAgeDays / MAX_NOTICE_AGE_DAYS) are enforced.
+test('43. Configurable keywords and configurable publication date age cutoff reject notices older than cutoff', async () => {
+  const store = new CliMemoryStateStore();
+  await executeBootstrapBaseline(store, {
+    useFixtures: true,
+    nowIso: '2026-10-10T10:00:00.000Z',
+  });
+
+  // Advance RRB_PATNA watermark to 2026-10-10 so we can test age cutoff specifically on a 5-day-old notice
+  store.state.lastSuccessfulNoticeDatesByBoard.RRB_PATNA = '2026-10-10';
+
+  const fiveDaysOldNotice = {
+    noticeCode: 'CEN 04/2026-AGE5',
+    title: 'CEN 04/2026: Provisional Answer Key & Objection Tracker Link',
+    publicationDate: '2026-10-15',
+    category: 'Answer Key & Objection Tracker',
+    pdfPath: '/notices/2026/Age5_AnswerKey.pdf',
+  };
+  const freshNotice = {
+    noticeCode: 'CEN 04/2026-FRESH',
+    title: 'CEN 04/2026: Final Result & Merit List Published',
+    publicationDate: '2026-10-20',
+    category: 'Result & Cut-Off Marks',
+    pdfPath: '/notices/2026/Fresh_Result.pdf',
+  };
+
+  // Configure strict 3-day age cutoff and custom keyword list ['merit list']
+  const runRes = await executeMonitorRun(store, {
+    useFixtures: true,
+    nowIso: '2026-10-20T09:00:00.000Z',
+    maxNoticeAgeDays: 3,
+    filterKeywords: ['merit list'],
+    fixtureOverrides: {
+      RRB_PATNA: {
+        body: buildOfficialBoardHtmlFixture('RRB_PATNA', [fiveDaysOldNotice, freshNotice]),
+      },
+    },
+    env: {
+      TELEGRAM_BOT_TOKEN: '123456789:AAH_TEST_TOKEN_VALID_FORMAT',
+      TELEGRAM_CHAT_ID: '-100987654321',
+    },
+    telegramFetchImpl: async () =>
+      new Response(JSON.stringify({ ok: true, result: { message_id: 702 } }), { status: 200 }),
+  });
+
+  // fiveDaysOldNotice is 5 days old (> 3-day cutoff) -> quarantined; freshNotice matches 'merit list' and is 0 days old -> delivered
+  assert.equal(runRes.quarantinedNotices, 1);
+  assert.equal(runRes.newNoticesEligible, 1);
+  assert.equal(runRes.deliveriesSent, 1);
+});
+
+// 44. Maximum of 10 notifications per run is strictly enforced and zero duplicates are sent on subsequent runs.
+test('44. Maximum of 10 notifications per run is enforced when >10 eligible notices arrive, with zero duplicates on next run', async () => {
+  const store = new CliMemoryStateStore();
+  await executeBootstrapBaseline(store, {
+    useFixtures: true,
+    nowIso: '2026-10-19T10:00:00.000Z',
+  });
+
+  // Generate 14 distinct new matching notices for RRB_MUMBAI
+  const burstNotices = Array.from({ length: 14 }, (_, idx) => ({
+    noticeCode: `CEN-BURST-2026-${idx + 1}`,
+    title: `CEN 0${(idx % 5) + 1}/2026: Recruitment Notification & Exam Schedule Batch Item #${idx + 1}`,
+    publicationDate: '2026-10-20',
+    category: 'Employment Notification (CEN)',
+    pdfPath: `/notices/2026/MMCT_Burst_Notice_${idx + 1}.pdf`,
+  }));
+
+  let tgMessagesSentRun1 = 0;
+  const run1 = await executeMonitorRun(store, {
+    useFixtures: true,
+    nowIso: '2026-10-20T09:00:00.000Z',
+    fixtureOverrides: {
+      RRB_MUMBAI: {
+        body: buildOfficialBoardHtmlFixture('RRB_MUMBAI', burstNotices),
+      },
+    },
+    env: {
+      TELEGRAM_BOT_TOKEN: '123456789:AAH_TEST_TOKEN_VALID_FORMAT',
+      TELEGRAM_CHAT_ID: '-100987654321',
+    },
+    telegramFetchImpl: async () => {
+      tgMessagesSentRun1 += 1;
+      return new Response(JSON.stringify({ ok: true, result: { message_id: 800 + tgMessagesSentRun1 } }), {
+        status: 200,
+      });
+    },
+  });
+
+  assert.equal(run1.status, 'SUCCESS');
+  assert.equal(run1.newNoticesEligible, 14);
+  assert.equal(run1.deliveriesSent, 10);
+  assert.equal(tgMessagesSentRun1, 10);
+
+  // Subsequent workflow run with the exact same 14 notices must send 0 duplicate notifications
+  let tgMessagesSentRun2 = 0;
+  const run2 = await executeMonitorRun(store, {
+    useFixtures: true,
+    nowIso: '2026-10-20T09:10:00.000Z',
+    fixtureOverrides: {
+      RRB_MUMBAI: {
+        body: buildOfficialBoardHtmlFixture('RRB_MUMBAI', burstNotices),
+      },
+    },
+    env: {
+      TELEGRAM_BOT_TOKEN: '123456789:AAH_TEST_TOKEN_VALID_FORMAT',
+      TELEGRAM_CHAT_ID: '-100987654321',
+    },
+    telegramFetchImpl: async () => {
+      tgMessagesSentRun2 += 1;
+      return new Response(JSON.stringify({ ok: true, result: { message_id: 900 } }), { status: 200 });
+    },
+  });
+
+  assert.equal(run2.status, 'SUCCESS');
+  assert.equal(run2.newNoticesEligible, 0);
+  assert.equal(run2.deliveriesSent, 0);
+  assert.equal(tgMessagesSentRun2, 0);
+});
+
+// 45. Every Telegram alert includes notice title, official website/platform name, publication date, and direct notice link.
+test('45. Telegram alert formatting includes notice title, official website/platform name, publication date, and direct notice link', () => {
+  const chunks = formatProductionNoticeTelegramMessage(
+    {
+      deliveryId: 'dlv_test_format_1',
+      noticeId: 'RRB_AJMER_123456',
+      fingerprint: 'f'.repeat(64),
+      boardId: 'RRB_AJMER',
+      boardName: 'RRB Ajmer',
+      title: 'CEN 03/2026 (JE): Admit Card & City Intimation Link for CBT-1',
+      category: 'Admit Card & E-Call Letter',
+      publicationDate: '2026-10-20',
+      officialNoticeUrl: 'https://rrb.indianrailways.gov.in/notices/2026/AII_JE_AdmitCard.pdf',
+      attachmentUrls: ['https://rrb.indianrailways.gov.in/notices/2026/AII_JE_AdmitCard.pdf'],
+      status: 'sending',
+      attemptCount: 1,
+      claimedByRunId: 'run_1',
+      claimedAt: '2026-10-20T09:00:00.000Z',
+      telegramMessageId: null,
+      lastAttemptAt: '2026-10-20T09:00:00.000Z',
+      deliveredAt: null,
+      lastError: null,
+      reconciliationNotes: null,
+      createdAt: '2026-10-20T09:00:00.000Z',
+      updatedAt: '2026-10-20T09:00:00.000Z',
+    },
+    '2026-10-20T09:00:00.000Z'
+  );
+
+  const message = chunks.join('\n\n');
+  assert.ok(message.includes('RRB Unified Official Portal (https://rrb.indianrailways.gov.in/)'));
+  assert.ok(message.includes('RRB Ajmer'));
+  assert.ok(message.includes('CEN 03/2026 (JE): Admit Card &amp; City Intimation Link for CBT-1'));
+  assert.ok(message.includes('2026-10-20'));
+  assert.ok(message.includes('https://rrb.indianrailways.gov.in/notices/2026/AII_JE_AdmitCard.pdf'));
+});
+
 
 
