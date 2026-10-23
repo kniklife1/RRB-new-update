@@ -6,7 +6,13 @@
   "lastAttemptedRunAt": "2026-10-23T13:45:30.298Z",
   "lastRunStatus": "SUCCESS",
   "lastRunId": "production_1792763130298",
-  "activeLock": null,
+  "activeLock": {
+    "lockId": "lock_production_1792763310203",
+    "ownerRunId": "production_1792763310203",
+    "operation": "cron_scan",
+    "acquiredAt": "2026-10-23T13:48:30.203Z",
+    "expiresAt": "2026-10-23T13:50:00.203Z"
+  },
   "resumableScanQueue": null,
   "boardStatuses": {
     "RRB_CENTRAL": {
