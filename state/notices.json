@@ -2,17 +2,11 @@
   "schemaVersion": 2,
   "initialized": true,
   "baselineCompletedAt": "2026-10-20T16:35:00.348Z",
-  "lastSuccessfulRunAt": "2026-10-23T07:00:49.741Z",
+  "lastSuccessfulRunAt": "2026-10-23T07:15:36.685Z",
   "lastAttemptedRunAt": "2026-10-23T07:15:33.545Z",
   "lastRunStatus": "SUCCESS",
   "lastRunId": "production_1792739733545",
-  "activeLock": {
-    "lockId": "lock_production_1792739733545",
-    "ownerRunId": "production_1792739733545",
-    "operation": "cron_scan",
-    "acquiredAt": "2026-10-23T07:15:33.545Z",
-    "expiresAt": "2026-10-23T07:17:03.545Z"
-  },
+  "activeLock": null,
   "resumableScanQueue": null,
   "boardStatuses": {
     "RRB_CENTRAL": {
@@ -1459,6 +1453,23 @@
   "uncertainDeliveries": {},
   "recentRunHistory": [
     {
+      "runId": "production_1792739733545",
+      "mode": "cron",
+      "startedAt": "2026-10-23T07:15:33.545Z",
+      "completedAt": "2026-10-23T07:15:36.685Z",
+      "durationMs": 3140,
+      "status": "SUCCESS",
+      "boardsScanned": 22,
+      "boardsSucceeded": 22,
+      "boardsFailed": 0,
+      "noticesFound": 35,
+      "newNoticesEligible": 0,
+      "messagesDelivered": 0,
+      "messagesFailed": 0,
+      "messagesUncertain": 0,
+      "summary": "Scanned 22 boards (22 OK, 0 failed). Eligible new: 0, revised: 0, delivered: 0."
+    },
+    {
       "runId": "production_1792738847375",
       "mode": "cron",
       "startedAt": "2026-10-23T07:00:47.375Z",
@@ -2280,23 +2291,6 @@
       "startedAt": "2026-10-22T22:30:44.493Z",
       "completedAt": "2026-10-22T22:30:47.651Z",
       "durationMs": 3158,
-      "status": "SUCCESS",
-      "boardsScanned": 22,
-      "boardsSucceeded": 22,
-      "boardsFailed": 0,
-      "noticesFound": 35,
-      "newNoticesEligible": 0,
-      "messagesDelivered": 0,
-      "messagesFailed": 0,
-      "messagesUncertain": 0,
-      "summary": "Scanned 22 boards (22 OK, 0 failed). Eligible new: 0, revised: 0, delivered: 0."
-    },
-    {
-      "runId": "production_1792707643554",
-      "mode": "cron",
-      "startedAt": "2026-10-22T22:20:43.554Z",
-      "completedAt": "2026-10-22T22:20:46.131Z",
-      "durationMs": 2577,
       "status": "SUCCESS",
       "boardsScanned": 22,
       "boardsSucceeded": 22,
