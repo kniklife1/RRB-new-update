@@ -160,7 +160,12 @@ export async function fetchBoardSource(
     };
   }
 
-  const effectiveUseFixtures = options?.useFixtures ?? (options?.fetchImpl ? false : true);
+  const effectiveUseFixtures =
+    options?.useFixtures !== undefined
+      ? Boolean(options.useFixtures)
+      : options?.fetchImpl
+        ? false
+        : process.env.USE_FIXTURES === 'true';
   if (effectiveUseFixtures) {
     const html = buildOfficialBoardHtmlFixture(
       board.boardId,
@@ -202,9 +207,9 @@ async function executeLiveUnifiedPortalFetch(
   // 3. Live network fetch with retries, exponential backoff + jitter, and redirect validation
   const fetchImpl = options?.fetchImpl || fetch;
   const timeoutMs =
-    options?.timeoutMs ?? (Number(process.env.SCRAPER_REQUEST_TIMEOUT_MS) || 6000);
+    options?.timeoutMs ?? (Number(process.env.SCRAPER_REQUEST_TIMEOUT_MS) || 12000);
   const maxRetries =
-    options?.maxRetries ?? (Number(process.env.SCRAPER_MAX_RETRIES) || 1);
+    options?.maxRetries ?? (Number(process.env.SCRAPER_MAX_RETRIES) || 2);
 
   let lastErrorMsg = 'Unknown fetch failure';
   let lastStatus: number | null = null;
@@ -224,9 +229,12 @@ async function executeLiveUnifiedPortalFetch(
         method: 'GET',
         headers: {
           'User-Agent':
-            'Mozilla/5.0 (compatible; RRB-Official-Notice-Monitor/2.1; +https://rrb.indianrailways.gov.in)',
-          Accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-IN,en;q=0.9,hi;q=0.8',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
+          'Accept-Language': 'en-IN,en-GB;q=0.9,en;q=0.8,hi;q=0.7',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
         },
         redirect: 'follow',
         signal: controller.signal,

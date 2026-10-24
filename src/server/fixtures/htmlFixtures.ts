@@ -420,11 +420,34 @@ export function buildOfficialBoardHtmlFixture(
 export function buildCombinedUnifiedPortalHtmlFixture(): string {
   const baseDomain = 'https://rrb.indianrailways.gov.in';
   const rows: string[] = [];
+  const cards: string[] = [];
 
   for (const board of VERIFIED_BOARD_CONFIGS) {
     const seeds = BOARD_SEED_NOTICES[board.boardId] || [];
+    const useCardLayout =
+      board.boardId === 'RRB_CENTRAL' ||
+      board.boardId === 'RRB_CHENNAI' ||
+      board.boardId === 'RRB_SECUNDERABAD';
+
     for (const item of seeds) {
-      rows.push(`
+      if (useCardLayout) {
+        cards.push(`
+      <article class="rrb-notice-item notice-card" data-board="${board.boardId}" data-notice-id="${item.noticeCode}" data-pub-date="${item.publicationDate}" data-category="${item.category}">
+        <div class="notice-meta">
+          <span class="notice-board-name">${board.boardName}</span>
+          <span class="notice-code">${item.noticeCode}</span>
+          <time class="notice-date" datetime="${item.publicationDate}">${item.publicationDate}</time>
+          <span class="notice-category">${item.category}</span>
+        </div>
+        <h3 class="notice-title">
+          <a href="${baseDomain}${item.pdfPath}">${item.title}</a>
+        </h3>
+        <div class="notice-links">
+          <a href="${baseDomain}${item.pdfPath}" class="pdf-download">Download Official PDF (English/Hindi)</a>
+        </div>
+      </article>`);
+      } else {
+        rows.push(`
         <tr data-board="${board.boardId}" data-zone="${board.zoneCode}" data-notice-id="${item.noticeCode}">
           <td class="col-date">${item.publicationDate.split('-').reverse().join('.')}</td>
           <td class="col-code">${item.noticeCode}</td>
@@ -435,6 +458,7 @@ export function buildCombinedUnifiedPortalHtmlFixture(): string {
             <a href="${baseDomain}${item.pdfPath}">PDF</a>
           </td>
         </tr>`);
+      }
     }
   }
 
@@ -450,6 +474,9 @@ export function buildCombinedUnifiedPortalHtmlFixture(): string {
     <h2>Railway Recruitment Control Board & All 21 Regional RRBs Unified Portal</h2>
   </header>
   <main id="unified-notices-portal">
+    <section class="notice-board-cards">
+      ${cards.join('\n')}
+    </section>
     <table class="rrb-notices-table">
       <thead>
         <tr>

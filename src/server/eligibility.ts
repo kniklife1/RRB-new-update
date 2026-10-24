@@ -22,6 +22,9 @@ export const DEFAULT_NOTICE_FILTER_KEYWORDS: string[] = [
   'examination date',
   'exam schedule',
   'admit card',
+  'e-call letter',
+  'ecall letter',
+  'call letter',
   'hall ticket',
   'city intimation',
   // Results
@@ -54,6 +57,8 @@ const COMPOUND_KEYWORD_EXPANSIONS: Record<string, string[]> = {
   answerkey: ['answer', 'key'],
   admitcard: ['admit', 'card'],
   hallticket: ['hall', 'ticket'],
+  ecallletter: ['e', 'call', 'letter'],
+  callletter: ['call', 'letter'],
 };
 
 function escapeRegex(literal: string): string {
@@ -144,13 +149,30 @@ export function matchesNoticeKeywords(
   notice: Pick<NormalizedNotice, 'title' | 'contentText'>,
   keywords: string[] = DEFAULT_NOTICE_FILTER_KEYWORDS
 ): { matched: boolean; matchedKeyword: string | null } {
-  const searchableText = `${notice.title || ''} ${notice.contentText || ''}`.trim();
+  const titleText = (notice.title || '').trim();
+  const contentText = (notice.contentText || '').trim();
+  const searchableText = `${titleText} ${contentText}`.trim();
   if (!searchableText) {
     return { matched: false, matchedKeyword: null };
   }
 
   const activeKeywords = keywords.length > 0 ? keywords : DEFAULT_NOTICE_FILTER_KEYWORDS;
-  for (const kw of activeKeywords) {
+  // Evaluate multi-word/specific keywords before generic 'posts' so Examination/Result/Stage notices report their specific category keyword
+  const prioritizedKeywords = [
+    ...activeKeywords.filter((k) => k.toLowerCase() !== 'posts'),
+    ...activeKeywords.filter((k) => k.toLowerCase() === 'posts'),
+  ];
+
+  if (titleText) {
+    for (const kw of prioritizedKeywords) {
+      const regex = buildKeywordPattern(kw);
+      if (regex && regex.test(titleText)) {
+        return { matched: true, matchedKeyword: kw };
+      }
+    }
+  }
+
+  for (const kw of prioritizedKeywords) {
     const regex = buildKeywordPattern(kw);
     if (regex && regex.test(searchableText)) {
       return { matched: true, matchedKeyword: kw };

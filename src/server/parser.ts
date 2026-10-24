@@ -315,6 +315,76 @@ export interface ParsedPageDiagnostics {
   diagnosticMessage: string;
 }
 
+const BOARD_NAME_TO_ID_MAP: Array<{ pattern: RegExp; boardId: string }> = [
+  { pattern: /^(?:rrb\s+)?ahmedabad(?:\s*\([^)]*\))?$/i, boardId: 'RRB_AHMEDABAD' },
+  { pattern: /^(?:rrb\s+)?ajmer(?:\s*\([^)]*\))?$/i, boardId: 'RRB_AJMER' },
+  { pattern: /^(?:rrb\s+)?(?:prayagraj|allahabad|prayagraj\s*\(allahabad\)|allahabad\s*\(prayagraj\))$/i, boardId: 'RRB_ALLAHABAD' },
+  { pattern: /^(?:rrb\s+)?(?:bengaluru|bangalore|bengaluru\s*\(bangalore\)|bangalore\s*\(bengaluru\))$/i, boardId: 'RRB_BANGALORE' },
+  { pattern: /^(?:rrb\s+)?bhopal(?:\s*\([^)]*\))?$/i, boardId: 'RRB_BHOPAL' },
+  { pattern: /^(?:rrb\s+)?bhubaneswar(?:\s*\([^)]*\))?$/i, boardId: 'RRB_BHUBANESWAR' },
+  { pattern: /^(?:rrb\s+)?bilaspur(?:\s*\([^)]*\))?$/i, boardId: 'RRB_BILASPUR' },
+  { pattern: /^(?:rrb\s+)?chandigarh(?:\s*\([^)]*\))?$/i, boardId: 'RRB_CHANDIGARH' },
+  { pattern: /^(?:rrb\s+)?chennai(?:\s*\([^)]*\))?$/i, boardId: 'RRB_CHENNAI' },
+  { pattern: /^(?:rrb\s+)?gorakhpur(?:\s*\([^)]*\))?$/i, boardId: 'RRB_GORAKHPUR' },
+  { pattern: /^(?:rrb\s+)?guwahati(?:\s*\([^)]*\))?$/i, boardId: 'RRB_GUWAHATI' },
+  { pattern: /^(?:rrb\s+)?(?:jammu(?:[-\s/]*srinagar)?|srinagar)(?:\s*\([^)]*\))?$/i, boardId: 'RRB_JAMMU' },
+  { pattern: /^(?:rrb\s+)?kolkata(?:\s*\([^)]*\))?$/i, boardId: 'RRB_KOLKATA' },
+  { pattern: /^(?:rrb\s+)?malda(?:\s*\([^)]*\))?$/i, boardId: 'RRB_MALDA' },
+  { pattern: /^(?:rrb\s+)?mumbai(?:\s*\([^)]*\))?$/i, boardId: 'RRB_MUMBAI' },
+  { pattern: /^(?:rrb\s+)?muzaffarpur(?:\s*\([^)]*\))?$/i, boardId: 'RRB_MUZAFFARPUR' },
+  { pattern: /^(?:rrb\s+)?patna(?:\s*\([^)]*\))?$/i, boardId: 'RRB_PATNA' },
+  { pattern: /^(?:rrb\s+)?ranchi(?:\s*\([^)]*\))?$/i, boardId: 'RRB_RANCHI' },
+  { pattern: /^(?:rrb\s+)?secunderabad(?:\s*\([^)]*\))?$/i, boardId: 'RRB_SECUNDERABAD' },
+  { pattern: /^(?:rrb\s+)?siliguri(?:\s*\([^)]*\))?$/i, boardId: 'RRB_SILIGURI' },
+  { pattern: /^(?:rrb\s+)?(?:thiruvananthapuram|trivandrum|thiruvananthapuram\s*\(trivandrum\))$/i, boardId: 'RRB_THIRUVANANTHAPURAM' },
+  { pattern: /^(?:rrcb|all\s*rrbs?|central|unified\s*central\s*portal|all[-\s]*india(?:\s*cen)?)$/i, boardId: 'RRB_CENTRAL' },
+];
+
+export function matchBoardCellToBoardId(rawCellText: string): string | null {
+  const cleaned = normalizeText(rawCellText);
+  if (!cleaned || cleaned.length > 45) return null;
+  for (const entry of BOARD_NAME_TO_ID_MAP) {
+    if (entry.pattern.test(cleaned)) {
+      return entry.boardId;
+    }
+  }
+  return null;
+}
+
+export function normalizeNoticeCodeCell(rawCellText: string): string | null {
+  const cleaned = normalizeText(rawCellText);
+  if (!cleaned || cleaned.length > 40) return null;
+
+  // Bare CEN number in a dedicated CEN column, e.g. "04/2026" or "04/2026-GHY"
+  if (/^\d{2}\/20\d{2}(?:-[A-Z0-9-]+)?$/i.test(cleaned)) {
+    return `CEN ${cleaned}`;
+  }
+
+  // Explicit CEN / RRC / Notice / Admin prefix
+  if (
+    /^(?:CEN\s*(?:No\.?)?\s*[-:]?\s*\d{2}\/20\d{2}(?:-[A-Z0-9-]+)?|CEN-[A-Z0-9-]+|RRC\s*(?:No\.?)?\s*[-:]?\s*\d{2}\/20\d{2}(?:-[A-Z0-9-]+)?|Notice[-/\s#.]*\d+[A-Za-z0-9/-]*|ADMIN-\d{4}-\d+)$/i.test(
+      cleaned
+    )
+  ) {
+    return cleaned.replace(/^cen\s+/i, 'CEN ');
+  }
+
+  return null;
+}
+
+function isSerialNumberCell(rawCellText: string): boolean {
+  const cleaned = normalizeText(rawCellText);
+  return /^(?:#|s\.?\s*no\.?|sr\.?\s*no\.?|\d{1,4}[.)]?)$/i.test(cleaned);
+}
+
+function isActionOrDownloadCell(rawCellText: string, hasAnchor: boolean): boolean {
+  if (!hasAnchor) return false;
+  const cleaned = normalizeText(rawCellText);
+  return /^(?:pdf|download(?:\s+(?:pdf|link|notice|e-?call\s*letter|admit\s*card|file))?|click\s*here(?:\s+to\s+[\w\s-]+)?|view(?:\s+(?:pdf|notice|link|details))?|link|open|action|english|hindi|english\s*\/\s*hindi)(?:\s*\([^)]*\))?$/i.test(
+    cleaned
+  );
+}
+
 /**
  * Validates and parses HTML or embedded JSON from an official RRB page into NormalizedNotice items.
  * Rejects HTTP 200 error pages, WAF challenges, login gates, and empty shells.
@@ -446,6 +516,92 @@ export function parseBoardPageContent(
     const rowText = normalizeText($row.text());
     if (!rowText || rowText.length < 10) return;
 
+    // Board attribution check: explicit data-board attribute on row or parent container
+    const explicitRowBoardAttr = (
+      $row.attr('data-board') ||
+      $row.closest('[data-board]').attr('data-board') ||
+      ''
+    ).trim();
+    if (
+      explicitRowBoardAttr &&
+      explicitRowBoardAttr.toUpperCase() !== board.boardId.toUpperCase()
+    ) {
+      return;
+    }
+
+    // Extract date, noticeCode, board cell, title cell, description cell, and action links
+    let dateText = ($row.attr('data-pub-date') || '').trim();
+    let categoryText = ($row.attr('data-category') || '').trim();
+    const rawAttrNoticeCode = ($row.attr('data-notice-id') || '').trim();
+    let noticeCode =
+      (rawAttrNoticeCode ? normalizeNoticeCodeCell(rawAttrNoticeCode) || rawAttrNoticeCode : '') || '';
+    const extraDescription = normalizeText(
+      $row.attr('data-content') ||
+        $row.find('.notice-description, .notice-summary, .notice-body, .description').text() ||
+        ''
+    );
+
+    let detectedBoardCellId = '';
+    const textCells: string[] = [];
+
+    cells.each((__, cell) => {
+      const $cell = $(cell);
+      const cellStr = normalizeText($cell.text());
+      if (!cellStr) return;
+
+      if (isSerialNumberCell(cellStr)) {
+        return;
+      }
+
+      const cellBoardId = matchBoardCellToBoardId(cellStr);
+      if (cellBoardId) {
+        if (!detectedBoardCellId) {
+          detectedBoardCellId = cellBoardId;
+        }
+        return;
+      }
+
+      const parsedDate = parseOfficialPublicationDate(cellStr);
+      if (parsedDate.publicationDate && cellStr.length <= 32) {
+        if (!dateText) {
+          dateText = cellStr;
+        }
+        return;
+      }
+
+      const normalizedCode = normalizeNoticeCodeCell(cellStr);
+      if (normalizedCode) {
+        if (!noticeCode) {
+          noticeCode = normalizedCode;
+        }
+        return;
+      }
+
+      const hasAnchor = $cell.find('a[href]').length > 0;
+      if (
+        isActionOrDownloadCell(cellStr, hasAnchor) ||
+        $cell.hasClass('col-download') ||
+        $cell.hasClass('col-action')
+      ) {
+        return;
+      }
+
+      if (/^no\s+date(?:\s+provided)?$|^n\/?a$|^nil$|^-+$/i.test(cellStr)) {
+        return;
+      }
+
+      textCells.push(cellStr);
+    });
+
+    // If the row had an explicit RRB / Board column cell (e.g. "Guwahati"), filter by target board
+    if (
+      !explicitRowBoardAttr &&
+      detectedBoardCellId &&
+      detectedBoardCellId.toUpperCase() !== board.boardId.toUpperCase()
+    ) {
+      return;
+    }
+
     // Collect all valid links inside the row
     const links: Array<{ href: string; text: string }> = [];
     $row.find('a[href]').each((__, a) => {
@@ -456,33 +612,42 @@ export function parseBoardPageContent(
       links.push({ href: canonHref, text: normalizeText($(a).text()) });
     });
 
-    if (links.length === 0) return;
-
-    // Extract date from explicit data-date attribute, a dedicated date cell, or row text
-    let dateText = $row.attr('data-pub-date') || '';
-    let categoryText = $row.attr('data-category') || '';
-    let noticeCode = $row.attr('data-notice-id') || '';
-    const extraDescription = normalizeText(
-      $row.attr('data-content') ||
-        $row.find('.notice-description, .notice-summary, .notice-body, .description').text() ||
-        ''
-    );
-    let titleCandidate = '';
-
-    cells.each((idx, cell) => {
-      const cellStr = normalizeText($(cell).text());
-      if (!dateText && parseOfficialPublicationDate(cellStr).publicationDate) {
-        dateText = cellStr;
-      } else if (
-        !noticeCode &&
-        /^(CEN\s*(?:No\.?)?\s*\d{2}\/\d{4}|RRC-\d{2}\/\d{4}|Notice[-/\s]\d+)/i.test(cellStr) &&
-        cellStr.length <= 36
-      ) {
-        noticeCode = cellStr;
-      } else if (cellStr.length > titleCandidate.length) {
-        titleCandidate = cellStr;
+    // If a genuine portal table row has a valid publication date and CEN number, but its action link
+    // was '#' or an external assessment login link, synthesize a deterministic canonical link on board.sourceUrl
+    if (links.length === 0) {
+      if (noticeCode && dateText && parseOfficialPublicationDate(dateText).publicationDate && textCells.length > 0) {
+        const slug = `${board.boardId}_${noticeCode}_${textCells[0]}`
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
+        const fallbackHref = canonicalizeOfficialUrl(`/notices/${slug}`, board.sourceUrl);
+        if (isApprovedOfficialUrl(fallbackHref).allowed) {
+          links.push({ href: fallbackHref, text: textCells[0] });
+        }
       }
-    });
+      if (links.length === 0) return;
+    }
+
+    let titleCandidate = '';
+    let contentTextCandidate = extraDescription;
+
+    if (textCells.length === 1) {
+      titleCandidate = textCells[0];
+    } else if (textCells.length >= 2) {
+      const primaryTitle = textCells[0];
+      const descriptionFromColumns = textCells.slice(1).join(' — ');
+      contentTextCandidate = [descriptionFromColumns, extraDescription]
+        .filter(Boolean)
+        .join(' — ');
+      if (
+        descriptionFromColumns &&
+        !primaryTitle.toLowerCase().includes(descriptionFromColumns.toLowerCase())
+      ) {
+        titleCandidate = `${primaryTitle} — ${descriptionFromColumns}`;
+      } else {
+        titleCandidate = primaryTitle;
+      }
+    }
 
     if (!titleCandidate) {
       titleCandidate = links[0].text || rowText;
@@ -500,7 +665,7 @@ export function parseBoardPageContent(
     rawCandidates.push({
       noticeCode: noticeCode || undefined,
       title: titleCandidate,
-      contentText: extraDescription || undefined,
+      contentText: contentTextCandidate || undefined,
       dateText: dateText || rowText,
       categoryText: categoryText || undefined,
       detailUrl,
@@ -513,6 +678,29 @@ export function parseBoardPageContent(
     '.notice-card, .rrb-notice-item, article.notice, li.notice-item, [data-notice-card]'
   ).each((_, card) => {
     const $card = $(card);
+
+    const explicitCardBoardAttr = (
+      $card.attr('data-board') ||
+      $card.closest('[data-board]').attr('data-board') ||
+      ''
+    ).trim();
+    if (
+      explicitCardBoardAttr &&
+      explicitCardBoardAttr.toUpperCase() !== board.boardId.toUpperCase()
+    ) {
+      return;
+    }
+
+    const cardBoardNameText = normalizeText($card.find('.notice-board-name, .board-name').first().text());
+    const detectedCardBoardId = cardBoardNameText ? matchBoardCellToBoardId(cardBoardNameText) : null;
+    if (
+      !explicitCardBoardAttr &&
+      detectedCardBoardId &&
+      detectedCardBoardId.toUpperCase() !== board.boardId.toUpperCase()
+    ) {
+      return;
+    }
+
     const links: Array<{ href: string; text: string }> = [];
     $card.find('a[href]').each((__, a) => {
       const rawHref = ($(a).attr('href') || '').trim();
@@ -526,7 +714,7 @@ export function parseBoardPageContent(
 
     const titleEl = $card.find('.notice-title, h3, h4, .title, a').first();
     const title = normalizeText(titleEl.text() || $card.text());
-    if (!title || title.length < 8) return;
+    if (!title || title.length < 4) return;
 
     const contentEl = $card.find('.notice-description, .notice-summary, .notice-body, .description, p');
     const contentText = normalizeText(
@@ -544,7 +732,13 @@ export function parseBoardPageContent(
       $card.attr('data-category') ||
       normalizeText($card.find('.notice-category, .category').first().text());
 
-    const noticeCode = $card.attr('data-notice-id') || undefined;
+    const rawCardNoticeCode =
+      $card.attr('data-notice-id') ||
+      normalizeText($card.find('.notice-code, .cen-number').first().text()) ||
+      undefined;
+    const noticeCode = rawCardNoticeCode
+      ? normalizeNoticeCodeCell(rawCardNoticeCode) || rawCardNoticeCode
+      : undefined;
     const pdfLinks = links.map((l) => l.href).filter((h) => /\.pdf($|\?)/i.test(h));
     const detailUrl = links[0].href;
     const attachmentUrls = Array.from(new Set(pdfLinks.length > 0 ? pdfLinks : [detailUrl]));

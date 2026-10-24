@@ -101,12 +101,15 @@ test('33. GitHub Actions workflow .github/workflows/monitor.yml has valid schedu
   assert.ok(content.includes('/api/test/all-zones'), 'Workflow remote mode must target /api/test/all-zones');
   assert.ok(content.includes('/api/test/telegram'), 'Workflow remote mode must target /api/test/telegram');
 
-  // Verify use_fixtures input has 'false' removed and 'true' set as mandatory default
-  assert.ok(content.includes("USE_FIXTURES: 'true'"), 'Workflow must enforce USE_FIXTURES: true');
-  assert.ok(content.includes('\\"useFixtures\\": true'), 'Remote endpoint dispatch must enforce useFixtures: true');
+  // Verify use_fixtures input defaults to 'false' (live portal fetching) while supporting 'true' for fixture runs
+  assert.ok(
+    content.includes("USE_FIXTURES: ${{ github.event_name == 'workflow_dispatch' && inputs.use_fixtures || vars.USE_FIXTURES || 'false' }}"),
+    'Workflow must default USE_FIXTURES to false for live fetching unless overridden'
+  );
   const useFixturesSection = content.split('use_fixtures:')[1]?.split('run_unit_tests:')[0] || '';
-  assert.ok(useFixturesSection.includes("default: 'true'"), 'use_fixtures must default to true');
-  assert.equal(useFixturesSection.includes("'false'"), false, 'use_fixtures must not offer false option');
+  assert.ok(useFixturesSection.includes("default: 'false'"), 'use_fixtures must default to false');
+  assert.ok(useFixturesSection.includes("- 'false'"), 'use_fixtures must include false option');
+  assert.ok(useFixturesSection.includes("- 'true'"), 'use_fixtures must include true option');
 });
 
 // 34. getGitHubConfigFromEnv resolves GitHub Actions automatic environment variables (GITHUB_REPOSITORY, GITHUB_REF_NAME, GH_STATE_TOKEN).
@@ -714,6 +717,109 @@ test('45. Telegram alert formatting includes notice title, official website/plat
   assert.ok(message.includes('2026-10-20'));
   assert.ok(message.includes('https://rrb.indianrailways.gov.in/notices/2026/AII_JE_AdmitCard.pdf'));
 });
+
+// 46. Regression Test: RRB Guwahati CEN 04/2026 E-Call Letter (23-10-2026) in multi-column portal table is detected, attributed to RRB Guwahati, matches Examination keywords, and is delivered to Telegram.
+test('46. Regression: RRB Guwahati CEN 04/2026 E-Call Letter (23-10-2026) in unified portal table is detected and delivered to Telegram', async () => {
+  const store = new CliMemoryStateStore();
+  await executeBootstrapBaseline(store, {
+    useFixtures: true,
+    nowIso: '2026-10-20T16:35:00.000Z',
+  });
+
+  // Build unified portal HTML containing the existing baselined notices PLUS the exact missed RRB Guwahati row
+  // in the multi-column official portal table format (RRB | CEN | Title | Description | Publication Date | Action)
+  const baseCombinedHtml = buildCombinedUnifiedPortalHtmlFixture();
+  const guwahatiPortalRow = `
+        <tr>
+          <td>Guwahati</td>
+          <td>04/2026</td>
+          <td>E-Call Letter</td>
+          <td>Download link for the first-stage CBT e-call letter for JE/DMS/CMA posts</td>
+          <td>23-10-2026</td>
+          <td><a href="https://rrb.indianrailways.gov.in/cen-04-2026/GHY_JE_DMS_CMA_CBT1_ECall_Letter.pdf">Download</a></td>
+        </tr>`;
+  const liveUnifiedPortalHtml = baseCombinedHtml.replace(
+    '<tbody>',
+    `<tbody>\n${guwahatiPortalRow}`
+  );
+
+  // 1. Verify keyword matcher directly matches E-Call Letter under Examination category
+  const kwMatch = matchesNoticeKeywords({
+    title: 'E-Call Letter',
+    contentText: 'Download link for the first-stage CBT e-call letter for JE/DMS/CMA posts',
+  });
+  assert.equal(kwMatch.matched, true);
+  assert.equal(kwMatch.matchedKeyword, 'e-call letter');
+
+  // 2. Run production monitor in LIVE mode (useFixtures: false) with the unified portal HTML response
+  const sentTelegramPayloads: string[] = [];
+  const liveFetchMock: typeof fetch = async (input) => {
+    const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    assert.equal(urlStr, 'https://rrb.indianrailways.gov.in/');
+    return new Response(liveUnifiedPortalHtml, {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    });
+  };
+
+  const run1 = await executeMonitorRun(store, {
+    mode: 'production',
+    useFixtures: false,
+    nowIso: '2026-10-23T10:00:00.000Z',
+    fetchImpl: liveFetchMock,
+    env: {
+      TELEGRAM_BOT_TOKEN: '123456789:AAH_TEST_TOKEN_VALID_FORMAT',
+      TELEGRAM_CHAT_ID: '-100987654321',
+    },
+    telegramFetchImpl: async (_url, init) => {
+      const body = JSON.parse(String(init?.body || '{}'));
+      sentTelegramPayloads.push(body.text);
+      return new Response(JSON.stringify({ ok: true, result: { message_id: 963 } }), {
+        status: 200,
+      });
+    },
+  });
+
+  assert.equal(run1.status, 'SUCCESS');
+  assert.equal(run1.boardsScanned, 22);
+  assert.equal(run1.boardsSucceeded, 22);
+  assert.equal(run1.newNoticesEligible, 1);
+  assert.equal(run1.deliveriesSent, 1);
+  assert.equal(sentTelegramPayloads.length, 1);
+
+  const alertHtml = sentTelegramPayloads[0];
+  assert.ok(alertHtml.includes('RRB Guwahati'), 'Telegram alert must identify RRB Guwahati');
+  assert.ok(alertHtml.includes('CEN 04/2026'), 'Telegram alert must include CEN 04/2026');
+  assert.ok(alertHtml.includes('E-Call Letter'), 'Telegram alert must include E-Call Letter title');
+  assert.ok(
+    alertHtml.includes('Download link for the first-stage CBT e-call letter for JE/DMS/CMA posts'),
+    'Telegram alert must include the notice description'
+  );
+  assert.ok(alertHtml.includes('2026-10-23'), 'Telegram alert must include normalized publication date 2026-10-23');
+  assert.ok(
+    alertHtml.includes('https://rrb.indianrailways.gov.in/cen-04-2026/GHY_JE_DMS_CMA_CBT1_ECall_Letter.pdf'),
+    'Telegram alert must include the direct notice link'
+  );
+
+  // 3. Verify subsequent run does not re-send duplicate alert
+  const run2 = await executeMonitorRun(store, {
+    mode: 'production',
+    useFixtures: false,
+    nowIso: '2026-10-23T10:10:00.000Z',
+    fetchImpl: liveFetchMock,
+    env: {
+      TELEGRAM_BOT_TOKEN: '123456789:AAH_TEST_TOKEN_VALID_FORMAT',
+      TELEGRAM_CHAT_ID: '-100987654321',
+    },
+    telegramFetchImpl: async () =>
+      new Response(JSON.stringify({ ok: true, result: { message_id: 964 } }), { status: 200 }),
+  });
+
+  assert.equal(run2.status, 'SUCCESS');
+  assert.equal(run2.newNoticesEligible, 0);
+  assert.equal(run2.deliveriesSent, 0);
+});
+
 
 
 

@@ -46,6 +46,8 @@ export function parseCliArgs(
   let sendTelegramSummary =
     (env.SEND_TELEGRAM_TEST_SUMMARY || 'false').trim().toLowerCase() === 'true';
 
+  let useFixtures = (env.USE_FIXTURES || 'false').trim().toLowerCase() === 'true';
+
   for (const arg of argv) {
     if (arg.startsWith('--mode=')) {
       modeRaw = arg.slice('--mode='.length).trim().toLowerCase();
@@ -57,6 +59,14 @@ export function parseCliArgs(
       modeRaw = 'all_zones';
     } else if (arg === '--telegram-test' || arg === '--telegram_test') {
       modeRaw = 'telegram_test';
+    } else if (arg === '--fixtures' || arg === '--use-fixtures') {
+      useFixtures = true;
+    } else if (arg === '--live' || arg === '--no-fixtures') {
+      useFixtures = false;
+    } else if (arg.startsWith('--fixtures=')) {
+      useFixtures = arg.slice('--fixtures='.length).trim().toLowerCase() === 'true';
+    } else if (arg.startsWith('--use-fixtures=')) {
+      useFixtures = arg.slice('--use-fixtures='.length).trim().toLowerCase() === 'true';
     } else if (arg.startsWith('--batch-size=')) {
       const parsed = Number(arg.slice('--batch-size='.length).trim());
       if (!Number.isNaN(parsed) && parsed > 0) {
@@ -81,8 +91,6 @@ export function parseCliArgs(
             ? 'telegram_test'
             : 'production';
 
-  const useFixtures = true;
-
   return {
     mode: normalizedMode,
     useFixtures,
@@ -96,7 +104,7 @@ export async function runCliMonitor(
   options: CliMonitorOptions
 ): Promise<CliMonitorExecutionOutput> {
   const store = options.store || new PersistentStateStore({ env: options.env });
-  const useFixtures = true;
+  const useFixtures = Boolean(options.useFixtures);
 
   if (options.mode === 'bootstrap') {
     const result = await executeBootstrapBaseline(store, {

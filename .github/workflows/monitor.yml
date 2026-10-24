@@ -26,11 +26,12 @@ on:
           - direct_cli
           - remote_endpoint
       use_fixtures:
-        description: 'Use deterministic offline HTML fixtures (mandatory default: true)'
-        required: true
-        default: 'true'
+        description: 'Use deterministic offline HTML fixtures instead of live portal fetch (default: false)'
+        required: false
+        default: 'false'
         type: choice
         options:
+          - 'false'
           - 'true'
       run_unit_tests:
         description: 'Run automated test suite before monitor execution'
@@ -105,9 +106,9 @@ jobs:
           NOTICE_FILTER_KEYWORDS: ${{ vars.NOTICE_FILTER_KEYWORDS }}
           CRON_EXECUTION_BUDGET_MS: '180000'
           MONITOR_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'production' }}
-          USE_FIXTURES: 'true'
+          USE_FIXTURES: ${{ github.event_name == 'workflow_dispatch' && inputs.use_fixtures || vars.USE_FIXTURES || 'false' }}
         run: |
-          npx tsx scripts/run-monitor.ts --mode="${MONITOR_MODE}" --fixtures="true"
+          npx tsx scripts/run-monitor.ts --mode="${MONITOR_MODE}" --fixtures="${USE_FIXTURES}"
 
       - name: Trigger Remote Deployed Server Endpoint
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.execution_target == 'remote_endpoint' }}
@@ -116,7 +117,7 @@ jobs:
           CRON_AUTH_TOKEN: ${{ secrets.CRON_AUTH_TOKEN }}
           ADMIN_AUTH_TOKEN: ${{ secrets.ADMIN_AUTH_TOKEN }}
           MODE: ${{ inputs.mode }}
-          USE_FIXTURES: 'true'
+          USE_FIXTURES: ${{ inputs.use_fixtures || 'false' }}
         run: |
           if [ -z "${MONITOR_API_URL}" ]; then
             echo "::error::MONITOR_API_URL secret is not configured. Configure MONITOR_API_URL or use execution_target=direct_cli."
@@ -126,15 +127,15 @@ jobs:
           if [ "${MODE}" = "bootstrap" ]; then
             ENDPOINT="${BASE_URL}/api/admin/bootstrap"
             TOKEN="${ADMIN_AUTH_TOKEN}"
-            BODY="{\"useFixtures\": true}"
+            BODY="{\"useFixtures\": ${USE_FIXTURES}}"
           elif [ "${MODE}" = "dry_run" ]; then
             ENDPOINT="${BASE_URL}/api/admin/dry-run"
             TOKEN="${ADMIN_AUTH_TOKEN}"
-            BODY="{\"useFixtures\": true}"
+            BODY="{\"useFixtures\": ${USE_FIXTURES}}"
           elif [ "${MODE}" = "all_zones" ]; then
             ENDPOINT="${BASE_URL}/api/test/all-zones"
             TOKEN="${CRON_AUTH_TOKEN}"
-            BODY="{\"useFixtures\": true, \"sendTelegramTestSummary\": false}"
+            BODY="{\"useFixtures\": ${USE_FIXTURES}, \"sendTelegramTestSummary\": false}"
           elif [ "${MODE}" = "telegram_test" ]; then
             ENDPOINT="${BASE_URL}/api/test/telegram"
             TOKEN="${ADMIN_AUTH_TOKEN}"
@@ -142,7 +143,7 @@ jobs:
           else
             ENDPOINT="${BASE_URL}/api/cron/run"
             TOKEN="${CRON_AUTH_TOKEN}"
-            BODY="{\"mode\": \"production\", \"useFixtures\": true}"
+            BODY="{\"mode\": \"production\", \"useFixtures\": ${USE_FIXTURES}}"
           fi
 
           if [ -z "${TOKEN}" ]; then
