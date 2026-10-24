@@ -104,6 +104,7 @@ jobs:
           MAX_NOTICE_AGE_DAYS: ${{ vars.MAX_NOTICE_AGE_DAYS != '' && vars.MAX_NOTICE_AGE_DAYS || '14' }}
           MAX_NOTIFICATIONS_PER_RUN: ${{ vars.MAX_NOTIFICATIONS_PER_RUN != '' && vars.MAX_NOTIFICATIONS_PER_RUN || '10' }}
           NOTICE_FILTER_KEYWORDS: ${{ vars.NOTICE_FILTER_KEYWORDS }}
+          RRB_PORTAL_MIRROR_URL: ${{ secrets.RRB_PORTAL_MIRROR_URL != '' && secrets.RRB_PORTAL_MIRROR_URL || vars.RRB_PORTAL_MIRROR_URL }}
           CRON_EXECUTION_BUDGET_MS: '180000'
           MONITOR_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'production' }}
           USE_FIXTURES: ${{ github.event_name == 'workflow_dispatch' && inputs.use_fixtures || vars.USE_FIXTURES || 'false' }}

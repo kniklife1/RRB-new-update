@@ -77,6 +77,7 @@ export interface FetchBoardOptions {
   timeoutMs?: number;
   maxRetries?: number;
   sharedLiveFetchCache?: Map<string, Promise<FetchBoardResult>>;
+  env?: Record<string, string | undefined>;
 }
 
 /**
@@ -204,129 +205,153 @@ async function executeLiveUnifiedPortalFetch(
   startMs: number,
   options?: FetchBoardOptions
 ): Promise<FetchBoardResult> {
-  // 3. Live network fetch with retries, exponential backoff + jitter, and redirect validation
+  // 3. Live network fetch with retries, exponential backoff + jitter, redirect validation, and optional mirror/relay support
   const fetchImpl = options?.fetchImpl || fetch;
   const timeoutMs =
-    options?.timeoutMs ?? (Number(process.env.SCRAPER_REQUEST_TIMEOUT_MS) || 12000);
+    options?.timeoutMs ?? (Number(process.env.SCRAPER_REQUEST_TIMEOUT_MS) || 10000);
   const maxRetries =
     options?.maxRetries ?? (Number(process.env.SCRAPER_MAX_RETRIES) || 2);
+  const configuredMirrorUrl = (
+    options?.env?.RRB_PORTAL_MIRROR_URL ||
+    options?.env?.RRB_PORTAL_PROXY_URL ||
+    process.env.RRB_PORTAL_MIRROR_URL ||
+    process.env.RRB_PORTAL_PROXY_URL ||
+    ''
+  ).trim();
 
   let lastErrorMsg = 'Unknown fetch failure';
   let lastStatus: number | null = null;
   let wasTimeout = false;
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    if (attempt > 0) {
-      const backoffMs = Math.min(2000, 250 * Math.pow(2, attempt - 1)) + Math.floor(Math.random() * 120);
-      await new Promise((r) => setTimeout(r, backoffMs));
-    }
+  const candidateUrls = [targetUrl];
+  if (configuredMirrorUrl && configuredMirrorUrl.startsWith('https://')) {
+    candidateUrls.push(configuredMirrorUrl);
+  }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+  for (const currentUrl of candidateUrls) {
+    const isMirrorAttempt = currentUrl !== targetUrl;
+    const retriesForUrl = isMirrorAttempt ? 1 : maxRetries;
 
-    try {
-      const res = await fetchImpl(targetUrl, {
-        method: 'GET',
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-          Accept:
-            'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
-          'Accept-Language': 'en-IN,en-GB;q=0.9,en;q=0.8,hi;q=0.7',
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
-        },
-        redirect: 'follow',
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      lastStatus = res.status;
+    for (let attempt = 0; attempt <= retriesForUrl; attempt++) {
+      if (attempt > 0) {
+        const backoffMs =
+          Math.min(2000, 250 * Math.pow(2, attempt - 1)) + Math.floor(Math.random() * 120);
+        await new Promise((r) => setTimeout(r, backoffMs));
+      }
 
-      // Validate redirect destination if URL changed
-      let redirectDest: string | null = null;
-      if (res.url && res.url !== targetUrl) {
-        redirectDest = res.url;
-        const redirectCheck = isApprovedOfficialUrl(res.url);
-        if (!redirectCheck.allowed) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const res = await fetchImpl(currentUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+            Accept:
+              'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
+            'Accept-Language': 'en-IN,en-GB;q=0.9,en;q=0.8,hi;q=0.7',
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+            'Upgrade-Insecure-Requests': '1',
+          },
+          redirect: 'follow',
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+        lastStatus = res.status;
+
+        // Validate redirect destination if URL changed on direct target
+        let redirectDest: string | null = null;
+        if (!isMirrorAttempt && res.url && res.url !== targetUrl) {
+          redirectDest = res.url;
+          const redirectCheck = isApprovedOfficialUrl(res.url);
+          if (!redirectCheck.allowed) {
+            return {
+              fetchResult: 'SSRF_BLOCKED',
+              httpStatus: res.status,
+              redirectDestination: res.url,
+              contentType: res.headers.get('content-type'),
+              responseSizeBytes: 0,
+              durationMs: Date.now() - startMs,
+              body: '',
+              errorCategory: 'UNAPPROVED_REDIRECT_DOMAIN',
+              diagnosticMessage: `Redirected to unapproved domain: ${res.url}`,
+              dataSourceMode: 'LIVE_NETWORK',
+            };
+          }
+        }
+
+        if (res.status === 429) {
+          const retryAfterHeader = res.headers.get('retry-after');
+          const retrySecs = retryAfterHeader ? Math.min(5, Number(retryAfterHeader) || 1) : 1;
+          lastErrorMsg = `HTTP 429 Too Many Requests (Retry-After: ${retrySecs}s)`;
+          if (attempt < retriesForUrl) {
+            await new Promise((r) => setTimeout(r, retrySecs * 1000));
+            continue;
+          }
+        }
+
+        if (res.status >= 500) {
+          lastErrorMsg = `Upstream server error HTTP ${res.status}`;
+          if (attempt < retriesForUrl) continue;
+          if (!isMirrorAttempt && candidateUrls.length > 1) break;
           return {
-            fetchResult: 'SSRF_BLOCKED',
+            fetchResult: 'HTTP_ERROR',
             httpStatus: res.status,
-            redirectDestination: res.url,
+            redirectDestination: redirectDest,
             contentType: res.headers.get('content-type'),
             responseSizeBytes: 0,
             durationMs: Date.now() - startMs,
             body: '',
-            errorCategory: 'UNAPPROVED_REDIRECT_DOMAIN',
-            diagnosticMessage: `Redirected to unapproved domain: ${res.url}`,
+            errorCategory: `HTTP_${res.status}`,
+            diagnosticMessage: lastErrorMsg,
             dataSourceMode: 'LIVE_NETWORK',
           };
         }
-      }
 
-      if (res.status === 429) {
-        const retryAfterHeader = res.headers.get('retry-after');
-        const retrySecs = retryAfterHeader ? Math.min(5, Number(retryAfterHeader) || 1) : 1;
-        lastErrorMsg = `HTTP 429 Too Many Requests (Retry-After: ${retrySecs}s)`;
-        if (attempt < maxRetries) {
-          await new Promise((r) => setTimeout(r, retrySecs * 1000));
-          continue;
+        if (!res.ok) {
+          lastErrorMsg = `Upstream returned HTTP ${res.status}.`;
+          if (!isMirrorAttempt && candidateUrls.length > 1) break;
+          return {
+            fetchResult: 'HTTP_ERROR',
+            httpStatus: res.status,
+            redirectDestination: redirectDest,
+            contentType: res.headers.get('content-type'),
+            responseSizeBytes: 0,
+            durationMs: Date.now() - startMs,
+            body: '',
+            errorCategory: `HTTP_${res.status}`,
+            diagnosticMessage: lastErrorMsg,
+            dataSourceMode: 'LIVE_NETWORK',
+          };
         }
-      }
 
-      if (res.status >= 500) {
-        lastErrorMsg = `Upstream server error HTTP ${res.status}`;
-        if (attempt < maxRetries) continue;
+        const contentType = res.headers.get('content-type') || 'text/html';
+        const body = await res.text();
         return {
-          fetchResult: 'HTTP_ERROR',
+          fetchResult: 'SUCCESS',
           httpStatus: res.status,
           redirectDestination: redirectDest,
-          contentType: res.headers.get('content-type'),
-          responseSizeBytes: 0,
+          contentType,
+          responseSizeBytes: Buffer.byteLength(body, 'utf8'),
           durationMs: Date.now() - startMs,
-          body: '',
-          errorCategory: `HTTP_${res.status}`,
-          diagnosticMessage: lastErrorMsg,
+          body,
+          errorCategory: null,
+          diagnosticMessage: isMirrorAttempt
+            ? 'Live HTTP 200 fetch succeeded via configured relay mirror.'
+            : 'Live HTTP 200 fetch succeeded.',
           dataSourceMode: 'LIVE_NETWORK',
         };
-      }
-
-      if (!res.ok) {
-        return {
-          fetchResult: 'HTTP_ERROR',
-          httpStatus: res.status,
-          redirectDestination: redirectDest,
-          contentType: res.headers.get('content-type'),
-          responseSizeBytes: 0,
-          durationMs: Date.now() - startMs,
-          body: '',
-          errorCategory: `HTTP_${res.status}`,
-          diagnosticMessage: `Upstream returned HTTP ${res.status}.`,
-          dataSourceMode: 'LIVE_NETWORK',
-        };
-      }
-
-      const contentType = res.headers.get('content-type') || 'text/html';
-      const body = await res.text();
-      return {
-        fetchResult: 'SUCCESS',
-        httpStatus: res.status,
-        redirectDestination: redirectDest,
-        contentType,
-        responseSizeBytes: Buffer.byteLength(body, 'utf8'),
-        durationMs: Date.now() - startMs,
-        body,
-        errorCategory: null,
-        diagnosticMessage: 'Live HTTP 200 fetch succeeded.',
-        dataSourceMode: 'LIVE_NETWORK',
-      };
-    } catch (err) {
-      clearTimeout(timer);
-      const msg = (err as Error).message || 'Fetch error';
-      if ((err as Error).name === 'AbortError' || /abort|timed?\s*out/i.test(msg)) {
-        wasTimeout = true;
-        lastErrorMsg = `Connection timed out after ${timeoutMs}ms (NIC server geo-fenced or unreachable from current network).`;
-      } else {
-        lastErrorMsg = msg;
+      } catch (err) {
+        clearTimeout(timer);
+        const msg = (err as Error).message || 'Fetch error';
+        if ((err as Error).name === 'AbortError' || /abort|timed?\s*out/i.test(msg)) {
+          wasTimeout = true;
+          lastErrorMsg = `Connection to ${currentUrl} timed out after ${timeoutMs}ms (CRIS/NIC firewall 103.110.246.98:443 drops TCP SYN from non-Indian cloud datacenter IPs or upstream is unreachable).`;
+        } else {
+          lastErrorMsg = msg;
+        }
       }
     }
   }
@@ -1233,17 +1258,9 @@ export async function executeMonitorRun(
         eligibleNoticeTitles.push(`[${board.boardName}] ${decision.updatedNotice.title}`);
 
         if (mode === 'production') {
-          if (Object.keys(state.pendingDeliveries).length < maxNotificationsPerRun) {
-            state.knownNotices[decision.updatedNotice.noticeId] = decision.updatedNotice;
-            const qItem = createDeliveryQueueItem(decision.updatedNotice, nowIso);
-            state.pendingDeliveries[qItem.deliveryId] = qItem;
-          } else {
-            // Per-run notification limit reached: record notice in knownNotices so it will not trigger duplicates
-            state.knownNotices[decision.updatedNotice.noticeId] = {
-              ...decision.updatedNotice,
-              deliveryStatus: 'suppressed_filter',
-            };
-          }
+          state.knownNotices[decision.updatedNotice.noticeId] = decision.updatedNotice;
+          const qItem = createDeliveryQueueItem(decision.updatedNotice, nowIso);
+          state.pendingDeliveries[qItem.deliveryId] = qItem;
         }
       } else if (mode === 'production') {
         // Persist updated observation timestamps or baseline/quarantine metadata
@@ -1358,10 +1375,7 @@ export async function executeMonitorRun(
       continue;
     }
     if (claimedForCurrentRun >= maxNotificationsPerRun) {
-      delete state.pendingDeliveries[item.deliveryId];
-      if (state.knownNotices[item.noticeId]) {
-        state.knownNotices[item.noticeId].deliveryStatus = 'suppressed_filter';
-      }
+      // Keep remaining pending notices queued in state.pendingDeliveries for subsequent runs without losing them
       continue;
     }
     claimedForCurrentRun += 1;

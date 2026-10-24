@@ -612,8 +612,8 @@ test('43. Configurable keywords and configurable publication date age cutoff rej
   assert.equal(runRes.deliveriesSent, 1);
 });
 
-// 44. Maximum of 10 notifications per run is strictly enforced and zero duplicates are sent on subsequent runs.
-test('44. Maximum of 10 notifications per run is enforced when >10 eligible notices arrive, with zero duplicates on next run', async () => {
+// 44. Maximum of 10 notifications per run is strictly enforced without losing pending notices, and zero duplicates are sent on subsequent runs.
+test('44. Maximum of 10 notifications per run is enforced when >10 eligible notices arrive, preserving pending notices for next run with zero duplicates', async () => {
   const store = new CliMemoryStateStore();
   await executeBootstrapBaseline(store, {
     useFixtures: true,
@@ -654,8 +654,13 @@ test('44. Maximum of 10 notifications per run is enforced when >10 eligible noti
   assert.equal(run1.newNoticesEligible, 14);
   assert.equal(run1.deliveriesSent, 10);
   assert.equal(tgMessagesSentRun1, 10);
+  assert.equal(
+    Object.keys(store.state.pendingDeliveries).length,
+    4,
+    'Remaining 4 eligible notices must stay queued in pendingDeliveries without being lost'
+  );
 
-  // Subsequent workflow run with the exact same 14 notices must send 0 duplicate notifications
+  // Run 2 (10 minutes later): delivers the remaining 4 queued notices without re-discovering or duplicating the first 10
   let tgMessagesSentRun2 = 0;
   const run2 = await executeMonitorRun(store, {
     useFixtures: true,
@@ -671,14 +676,42 @@ test('44. Maximum of 10 notifications per run is enforced when >10 eligible noti
     },
     telegramFetchImpl: async () => {
       tgMessagesSentRun2 += 1;
-      return new Response(JSON.stringify({ ok: true, result: { message_id: 900 } }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, result: { message_id: 900 + tgMessagesSentRun2 } }), {
+        status: 200,
+      });
     },
   });
 
   assert.equal(run2.status, 'SUCCESS');
   assert.equal(run2.newNoticesEligible, 0);
-  assert.equal(run2.deliveriesSent, 0);
-  assert.equal(tgMessagesSentRun2, 0);
+  assert.equal(run2.deliveriesSent, 4);
+  assert.equal(tgMessagesSentRun2, 4);
+  assert.equal(Object.keys(store.state.pendingDeliveries).length, 0);
+
+  // Run 3 (20 minutes later): all 14 notices are now delivered, so 0 notifications are sent
+  let tgMessagesSentRun3 = 0;
+  const run3 = await executeMonitorRun(store, {
+    useFixtures: true,
+    nowIso: '2026-10-20T09:20:00.000Z',
+    fixtureOverrides: {
+      RRB_MUMBAI: {
+        body: buildOfficialBoardHtmlFixture('RRB_MUMBAI', burstNotices),
+      },
+    },
+    env: {
+      TELEGRAM_BOT_TOKEN: '123456789:AAH_TEST_TOKEN_VALID_FORMAT',
+      TELEGRAM_CHAT_ID: '-100987654321',
+    },
+    telegramFetchImpl: async () => {
+      tgMessagesSentRun3 += 1;
+      return new Response(JSON.stringify({ ok: true, result: { message_id: 950 } }), { status: 200 });
+    },
+  });
+
+  assert.equal(run3.status, 'SUCCESS');
+  assert.equal(run3.newNoticesEligible, 0);
+  assert.equal(run3.deliveriesSent, 0);
+  assert.equal(tgMessagesSentRun3, 0);
 });
 
 // 45. Every Telegram alert includes notice title, official website/platform name, publication date, and direct notice link.
