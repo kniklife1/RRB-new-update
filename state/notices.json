@@ -6,13 +6,7 @@
   "lastAttemptedRunAt": "2026-10-24T17:59:28.671Z",
   "lastRunStatus": "FAILED",
   "lastRunId": "production_1792864768671",
-  "activeLock": {
-    "lockId": "lock_production_1792864768671",
-    "ownerRunId": "production_1792864768671",
-    "operation": "cron_scan",
-    "acquiredAt": "2026-10-24T17:59:28.671Z",
-    "expiresAt": "2026-10-24T18:00:58.671Z"
-  },
+  "activeLock": null,
   "resumableScanQueue": null,
   "boardStatuses": {
     "RRB_CENTRAL": {
@@ -1459,6 +1453,23 @@
   "uncertainDeliveries": {},
   "recentRunHistory": [
     {
+      "runId": "production_1792864768671",
+      "mode": "cron",
+      "startedAt": "2026-10-24T17:59:28.671Z",
+      "completedAt": "2026-10-24T17:59:59.611Z",
+      "durationMs": 30940,
+      "status": "FAILED",
+      "boardsScanned": 22,
+      "boardsSucceeded": 0,
+      "boardsFailed": 22,
+      "noticesFound": 0,
+      "newNoticesEligible": 0,
+      "messagesDelivered": 0,
+      "messagesFailed": 0,
+      "messagesUncertain": 0,
+      "summary": "Scanned 22 boards (0 OK, 22 failed). Eligible new: 0, revised: 0, delivered: 0."
+    },
+    {
       "runId": "production_1792863089740",
       "mode": "cron",
       "startedAt": "2026-10-24T17:31:29.740Z",
@@ -2280,23 +2291,6 @@
       "startedAt": "2026-10-24T08:15:29.832Z",
       "completedAt": "2026-10-24T08:15:33.358Z",
       "durationMs": 3526,
-      "status": "SUCCESS",
-      "boardsScanned": 22,
-      "boardsSucceeded": 22,
-      "boardsFailed": 0,
-      "noticesFound": 35,
-      "newNoticesEligible": 0,
-      "messagesDelivered": 0,
-      "messagesFailed": 0,
-      "messagesUncertain": 0,
-      "summary": "Scanned 22 boards (22 OK, 0 failed). Eligible new: 0, revised: 0, delivered: 0."
-    },
-    {
-      "runId": "production_1792828838839",
-      "mode": "cron",
-      "startedAt": "2026-10-24T08:00:38.839Z",
-      "completedAt": "2026-10-24T08:00:41.532Z",
-      "durationMs": 2693,
       "status": "SUCCESS",
       "boardsScanned": 22,
       "boardsSucceeded": 22,
