@@ -853,6 +853,73 @@ test('46. Regression: RRB Guwahati CEN 04/2026 E-Call Letter (23-10-2026) in uni
   assert.equal(run2.deliveriesSent, 0);
 });
 
+// 47. Node undici TypeError: fetch failed with cause.code=UND_ERR_CONNECT_TIMEOUT is classified as FETCH_TIMEOUT with detailed cause diagnostics, and automatically falls back to RRB_PORTAL_MIRROR_URL when configured.
+test('47. Node undici UND_ERR_CONNECT_TIMEOUT is extracted from err.cause and falls back to RRB_PORTAL_MIRROR_URL relay when configured', async () => {
+  const guwahatiBoard = VERIFIED_BOARD_CONFIGS.find((b) => b.boardId === 'RRB_GUWAHATI')!;
 
+  // Case A: Direct fetch throws TypeError('fetch failed') with err.cause.code = 'UND_ERR_CONNECT_TIMEOUT' and no relay configured
+  const undiciTimeoutFetch: typeof fetch = async () => {
+    const causeErr = Object.assign(
+      new Error('Connect Timeout Error (attempted address: rrb.indianrailways.gov.in:443, timeout: 10000ms)'),
+      { code: 'UND_ERR_CONNECT_TIMEOUT' }
+    );
+    throw new TypeError('fetch failed', { cause: causeErr });
+  };
 
+  const failRes = await fetchBoardSource(guwahatiBoard, {
+    useFixtures: false,
+    maxRetries: 0,
+    fetchImpl: undiciTimeoutFetch,
+    env: { RRB_PORTAL_MIRROR_URL: '' },
+  });
 
+  assert.equal(failRes.fetchResult, 'TIMEOUT');
+  assert.equal(failRes.errorCategory, 'FETCH_TIMEOUT');
+  assert.ok(
+    failRes.diagnosticMessage.includes('UND_ERR_CONNECT_TIMEOUT'),
+    `Expected UND_ERR_CONNECT_TIMEOUT in diagnosticMessage, got: ${failRes.diagnosticMessage}`
+  );
+  assert.ok(
+    failRes.diagnosticMessage.includes('103.110.246.98:443'),
+    'Expected CRIS/NIC firewall IP explanation in diagnosticMessage'
+  );
+
+  // Case B: Direct fetch throws UND_ERR_CONNECT_TIMEOUT, then succeeds via configured RRB_PORTAL_MIRROR_URL with X-Relay-Auth header
+  const calledUrls: string[] = [];
+  let relayAuthHeaderReceived = '';
+  const relayFallbackFetch: typeof fetch = async (input, init) => {
+    const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    calledUrls.push(urlStr);
+    if (urlStr === 'https://rrb.indianrailways.gov.in/') {
+      const causeErr = Object.assign(
+        new Error('Connect Timeout Error (attempted address: rrb.indianrailways.gov.in:443, timeout: 10000ms)'),
+        { code: 'UND_ERR_CONNECT_TIMEOUT' }
+      );
+      throw new TypeError('fetch failed', { cause: causeErr });
+    }
+    const headersObj = (init?.headers || {}) as Record<string, string>;
+    relayAuthHeaderReceived = headersObj['X-Relay-Auth'] || '';
+    return new Response(buildCombinedUnifiedPortalHtmlFixture(), {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    });
+  };
+
+  const relayRes = await fetchBoardSource(guwahatiBoard, {
+    useFixtures: false,
+    maxRetries: 0,
+    fetchImpl: relayFallbackFetch,
+    env: {
+      RRB_PORTAL_MIRROR_URL: 'https://india-relay.example.org/rrb-portal',
+      RRB_PORTAL_MIRROR_AUTH_TOKEN: 'relay-secret-token-123',
+    },
+  });
+
+  assert.equal(relayRes.fetchResult, 'SUCCESS');
+  assert.equal(relayRes.httpStatus, 200);
+  assert.deepEqual(calledUrls, [
+    'https://rrb.indianrailways.gov.in/',
+    'https://india-relay.example.org/rrb-portal',
+  ]);
+  assert.equal(relayAuthHeaderReceived, 'relay-secret-token-123');
+});

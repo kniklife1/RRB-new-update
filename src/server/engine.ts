@@ -207,15 +207,22 @@ async function executeLiveUnifiedPortalFetch(
 ): Promise<FetchBoardResult> {
   // 3. Live network fetch with retries, exponential backoff + jitter, redirect validation, and optional mirror/relay support
   const fetchImpl = options?.fetchImpl || fetch;
-  const timeoutMs =
-    options?.timeoutMs ?? (Number(process.env.SCRAPER_REQUEST_TIMEOUT_MS) || 10000);
-  const maxRetries =
-    options?.maxRetries ?? (Number(process.env.SCRAPER_MAX_RETRIES) || 2);
+  const rawTimeout =
+    options?.timeoutMs ?? Number(options?.env?.SCRAPER_REQUEST_TIMEOUT_MS ?? process.env.SCRAPER_REQUEST_TIMEOUT_MS);
+  const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : 10000;
+  const rawRetries =
+    options?.maxRetries ?? Number(options?.env?.SCRAPER_MAX_RETRIES ?? process.env.SCRAPER_MAX_RETRIES);
+  const maxRetries = Number.isFinite(rawRetries) && rawRetries >= 0 ? Math.floor(rawRetries) : 2;
   const configuredMirrorUrl = (
     options?.env?.RRB_PORTAL_MIRROR_URL ||
     options?.env?.RRB_PORTAL_PROXY_URL ||
     process.env.RRB_PORTAL_MIRROR_URL ||
     process.env.RRB_PORTAL_PROXY_URL ||
+    ''
+  ).trim();
+  const configuredMirrorAuthToken = (
+    options?.env?.RRB_PORTAL_MIRROR_AUTH_TOKEN ||
+    process.env.RRB_PORTAL_MIRROR_AUTH_TOKEN ||
     ''
   ).trim();
 
@@ -243,18 +250,23 @@ async function executeLiveUnifiedPortalFetch(
       const timer = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
+        const requestHeaders: Record<string, string> = {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
+          'Accept-Language': 'en-IN,en-GB;q=0.9,en;q=0.8,hi;q=0.7',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+          'Upgrade-Insecure-Requests': '1',
+        };
+        if (isMirrorAttempt && configuredMirrorAuthToken) {
+          requestHeaders['X-Relay-Auth'] = configuredMirrorAuthToken;
+        }
+
         const res = await fetchImpl(currentUrl, {
           method: 'GET',
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-            Accept:
-              'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
-            'Accept-Language': 'en-IN,en-GB;q=0.9,en;q=0.8,hi;q=0.7',
-            'Cache-Control': 'no-cache',
-            Pragma: 'no-cache',
-            'Upgrade-Insecure-Requests': '1',
-          },
+          headers: requestHeaders,
           redirect: 'follow',
           signal: controller.signal,
         });
@@ -345,12 +357,38 @@ async function executeLiveUnifiedPortalFetch(
         };
       } catch (err) {
         clearTimeout(timer);
-        const msg = (err as Error).message || 'Fetch error';
-        if ((err as Error).name === 'AbortError' || /abort|timed?\s*out/i.test(msg)) {
+        const errorObj = err as Error & {
+          cause?: {
+            name?: string;
+            code?: string;
+            message?: string;
+          };
+        };
+        const msg = errorObj.message || 'Fetch error';
+        const causeCode = errorObj.cause?.code || '';
+        const causeMsg = errorObj.cause?.message || '';
+        const combinedErrorText = `${errorObj.name || ''} ${msg} ${causeCode} ${causeMsg}`;
+
+        if (
+          errorObj.name === 'AbortError' ||
+          causeCode === 'UND_ERR_CONNECT_TIMEOUT' ||
+          causeCode === 'ETIMEDOUT' ||
+          /abort|timed?\s*out|connect\s*timeout/i.test(combinedErrorText)
+        ) {
           wasTimeout = true;
-          lastErrorMsg = `Connection to ${currentUrl} timed out after ${timeoutMs}ms (CRIS/NIC firewall 103.110.246.98:443 drops TCP SYN from non-Indian cloud datacenter IPs or upstream is unreachable).`;
+          const detail = causeCode
+            ? `${causeCode}${causeMsg ? `: ${causeMsg}` : ''}`
+            : `aborted after ${timeoutMs}ms`;
+          const mirrorHint = configuredMirrorUrl
+            ? `Configured relay mirror (${configuredMirrorUrl}) also failed.`
+            : 'No RRB_PORTAL_MIRROR_URL relay configured; configure an India-hosted HTTPS relay or self-hosted India runner.';
+          lastErrorMsg = `Connection to ${currentUrl} timed out (${detail}; CRIS/NIC firewall 103.110.246.98:443 drops TCP SYN from non-Indian cloud datacenter IPs). ${mirrorHint}`;
         } else {
-          lastErrorMsg = msg;
+          const causeSuffix =
+            causeCode || causeMsg
+              ? ` (${[causeCode, causeMsg].filter(Boolean).join(': ')})`
+              : '';
+          lastErrorMsg = `${msg}${causeSuffix}`;
         }
       }
     }
@@ -1314,6 +1352,7 @@ export async function executeMonitorRun(
 
   // 4. If mode === 'dry_run', release lock without mutating production delivery queues or sending Telegram alerts
   if (mode === 'dry_run') {
+    const dryRunErrors = state.recentErrors.filter((e) => e.runId === runId);
     const freshEnvelope = await store.readState();
     const cleanState = freshEnvelope.state;
     cleanState.activeLock = null;
@@ -1322,6 +1361,10 @@ export async function executeMonitorRun(
       freshEnvelope.sha,
       `chore(dry-run): release lock after dry-run (${runId})`
     );
+    const returnedState: MonitorState = {
+      ...cleanState,
+      recentErrors: [...dryRunErrors, ...cleanState.recentErrors].slice(0, 50),
+    };
     return {
       runId,
       mode: 'dry_run',
@@ -1342,7 +1385,7 @@ export async function executeMonitorRun(
       remainingBoardsInQueue,
       summary: `Dry run completed: scanned ${boardsScanned} boards, found ${newNoticesEligible} new & ${revisedNoticesEligible} revised eligible notices (0 production mutations or Telegram sends).`,
       eligibleNoticeTitles,
-      state: cleanState,
+      state: returnedState,
     };
   }
 

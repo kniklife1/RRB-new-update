@@ -177,6 +177,16 @@ export async function runCliMonitor(
   const ok =
     runResult.status === 'SUCCESS' || runResult.status === 'PARTIAL_BATCH';
 
+  const recentRunErrors = runResult.state.recentErrors
+    .filter((e) => e.runId === runResult.runId)
+    .slice(0, 5)
+    .map((e) => ({
+      boardId: e.boardId,
+      stage: e.stage,
+      category: e.category,
+      message: e.message,
+    }));
+
   return {
     exitCode: ok ? 0 : 1,
     mode: options.mode,
@@ -203,6 +213,7 @@ export async function runCliMonitor(
       remainingBoardsInQueue: runResult.remainingBoardsInQueue,
       summary: runResult.summary,
       eligibleNoticeTitles: runResult.eligibleNoticeTitles,
+      recentRunErrors,
     },
   };
 }

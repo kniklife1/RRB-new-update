@@ -55,7 +55,7 @@ concurrency:
 jobs:
   monitor:
     name: Scan 22 RRB Boards & Dispatch Verified Alerts
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABELS != '' && fromJSON(vars.RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 5
 
     steps:
@@ -105,6 +105,9 @@ jobs:
           MAX_NOTIFICATIONS_PER_RUN: ${{ vars.MAX_NOTIFICATIONS_PER_RUN != '' && vars.MAX_NOTIFICATIONS_PER_RUN || '10' }}
           NOTICE_FILTER_KEYWORDS: ${{ vars.NOTICE_FILTER_KEYWORDS }}
           RRB_PORTAL_MIRROR_URL: ${{ secrets.RRB_PORTAL_MIRROR_URL != '' && secrets.RRB_PORTAL_MIRROR_URL || vars.RRB_PORTAL_MIRROR_URL }}
+          RRB_PORTAL_MIRROR_AUTH_TOKEN: ${{ secrets.RRB_PORTAL_MIRROR_AUTH_TOKEN }}
+          SCRAPER_REQUEST_TIMEOUT_MS: ${{ vars.SCRAPER_REQUEST_TIMEOUT_MS != '' && vars.SCRAPER_REQUEST_TIMEOUT_MS || '9000' }}
+          SCRAPER_MAX_RETRIES: ${{ vars.SCRAPER_MAX_RETRIES != '' && vars.SCRAPER_MAX_RETRIES || '2' }}
           CRON_EXECUTION_BUDGET_MS: '180000'
           MONITOR_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'production' }}
           USE_FIXTURES: ${{ github.event_name == 'workflow_dispatch' && inputs.use_fixtures || vars.USE_FIXTURES || 'false' }}
